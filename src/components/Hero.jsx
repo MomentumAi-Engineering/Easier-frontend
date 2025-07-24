@@ -81,7 +81,7 @@ const VerticalCarousel = () => {
 // Main Hero Component
 export default function HeroComponent() {
   return (
-    <div className="min-h-screen bg-black text-white flex p-8 relative">
+    <div className="min-h-screen  text-white flex p-8 relative">
       {/* Left side - Main content */}
       <div className="flex-1 flex flex-col justify-between pr-8 pl-12">
         {/* Main content */}

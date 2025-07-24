@@ -1,8 +1,10 @@
  import HeroComponent from '../components/Hero';
+ import AboutComponent from '../components/About';
  const Home = () => {
     return (
-       <div className=' '>
+       <div className='bg-black '>
           <HeroComponent />
+          <AboutComponent />
        </div>
     )
 }
