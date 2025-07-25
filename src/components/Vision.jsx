@@ -1,4 +1,5 @@
 import React from "react";
+import videoFile from "../assets/vid.mp4"; // Replace with your video path
 
 const VisionSection = () => {
   const cards = [
@@ -43,12 +44,26 @@ const VisionSection = () => {
           {cards.map((card, index) => (
             <div
               key={index}
-              className={`rounded-xl p-4 bg-[#0a0909] relative text-1xl font-extralight text-gray-100 flex flex-col justify-between h-60 border border-white/10 transform transition-all duration-300 hover:bg-[#1f1f1f] hover:translate-x-2 ${
-                index === 2 ? "col-span-2" : ""
+              className={`rounded-xl ${index === 2 ? "p-0 overflow-hidden" : "p-4"} bg-[#0a0909] ...
+ relative text-1xl font-extralight text-gray-100 flex flex-col justify-between h-60 border border-white/10 transform transition-all duration-300 hover:bg-[#1f1f1f] hover:translate-x-2 ${
+                index === 2 ? "col-span-2 p-0 overflow-hidden" : ""
               }`}
             >
-              <p className="mb-3">{card.text}</p>
-              <p className="text-white font-medium">{card.title}</p>
+              {index === 2 ? (
+                <video
+                  src={videoFile}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              ) : (
+                <>
+                  <p className="mb-3">{card.text}</p>
+                  <p className="text-white font-medium">{card.title}</p>
+                </>
+              )}
             </div>
           ))}
         </div>
