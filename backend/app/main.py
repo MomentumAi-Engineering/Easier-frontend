@@ -120,6 +120,25 @@ async def get_authorities_by_zip_code(zip_code: str):
         logger.error(f"Error fetching authorities for zip code {zip_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching authorities: {str(e)}")
 
+# NEW REPORT ENDPOINT - ADDED HERE
+@app.get("/report")
+async def get_report():
+    logger.debug("Report endpoint accessed")
+    try:
+        # Implement your report logic here
+        # Example: Fetch data from database, process it, and return
+        return {
+            "status": "success",
+            "message": "Report generated successfully",
+            "data": []  # Replace with actual report data
+        }
+    except Exception as e:
+        logger.error(f"Error generating report: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate report: {str(e)}"
+        )
+
 # Include API routes
 app.include_router(issues_router, prefix="/api")
 
