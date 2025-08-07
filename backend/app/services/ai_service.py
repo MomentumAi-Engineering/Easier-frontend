@@ -43,12 +43,17 @@ def classify_issue(image_content: bytes, description: str) -> tuple[str, str, fl
     try:
         image = Image.open(io.BytesIO(image_content))
         model = genai.GenerativeModel("gemini-1.5-flash")
+
+        # Load all issue types from the JSON file
+        issue_category_map = load_json_data("issue_category_map.json")
+        valid_issue_types = "|".join(issue_category_map.keys())
+
         prompt = f"""
 You are an expert AI trained to classify infrastructure-related issues based on an image and text description.
 Analyze the image and description: "{description}".
 Return JSON with:
 {{
-  "issue_type": "fire|pothole|garbage|property_damage|flood|vandalism|structural_damage|unknown",
+  "issue_type": "{valid_issue_types}",
   "confidence": number (0 to 100)
 }}
 Ensure the issue_type matches one of the specified options. For descriptions mentioning size (e.g., "2 ft wide") or safety risks (e.g., "cause cars to swerve"), prioritize "pothole" with high confidence. Provide only valid JSON without explanation.
@@ -92,7 +97,7 @@ Ensure the issue_type matches one of the specified options. For descriptions men
         )
         
         # Load category from JSON
-        issue_category_map = load_json_data("issue_category_map.json")
+        # issue_category_map = load_json_data("issue_category_map.json") # This line is moved up
         category = issue_category_map.get(issue_type, "public")
         priority = "High" if severity == "High" or confidence > 90 else "Medium"
         
@@ -200,7 +205,7 @@ Return this structure:
     "environmental_impact": "low|medium|high|none",
     "structural_implications": "low|medium|high|none",
     "legal_or_regulatory_considerations": "Relevant regulations or null",
-    "feedback": "User-provided decline reason: {decline_reason}" if decline_reason else null
+    "feedback": "User-provided decline reason: {decline_reason}" if decline_reason else None
   }},
   "recommended_actions": ["Action 1", "Action 2"],
   "responsible_authorities_or_parties": {json.dumps(responsible_authorities)},
