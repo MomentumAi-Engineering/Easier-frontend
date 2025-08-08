@@ -1,22 +1,27 @@
 import logging
 import re
 from typing import Optional, List, Dict, Any
-from pymongo import MongoClient
+import motor.motor_asyncio
 import gridfs
 from bson.objectid import ObjectId
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-from pymongo.errors import ConnectionFailure
-import time
+import asyncio
 from urllib.parse import urlparse
-import pymongo
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Log PyMongo version for debugging
-logger.info(f"Using PyMongo version: {pymongo.__version__}")
+# Log Motor version for debugging
+try:
+    import motor
+    # Use motor.version for version info, fallback to motor._version for older versions
+    motor_version = getattr(motor, 'version', getattr(motor, '_version', 'unknown'))
+    logger.info(f"Using Motor version: {motor_version}")
+except ImportError:
+    logger.error("Motor library not installed. Install with 'pip install motor'")
+    raise
 
 # Database connection setup
 MONGO_URI = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -28,26 +33,26 @@ if parsed_uri.path and parsed_uri.path.strip("/"):
     DB_NAME = parsed_uri.path.strip("/")
 
 # Global database connection
-client: Optional[MongoClient] = None
+client: Optional[motor.motor_asyncio.AsyncIOMotorClient] = None
 db = None
 fs = None
 
-def initialize_db(max_retries=3, retry_delay=5):
-    """Initialize the MongoDB connection and GridFS with retry logic"""
+async def initialize_db(max_retries=3, retry_delay=5):
+    """Initialize the MongoDB async connection and GridFS with retry logic."""
     global client, db, fs
     for attempt in range(max_retries):
         try:
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+            client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             # Test connection
-            client.admin.command('ping')
+            await client.admin.command('ping')
             db = client[DB_NAME]
-            fs = gridfs.GridFS(db)
-            logger.info(f"Database connection established to {DB_NAME}")
+            fs = motor.motor_asyncio.AsyncIOMotorGridFSBucket(db)
+            logger.info(f"Async database connection established to {DB_NAME}")
             return
-        except ConnectionFailure as e:
+        except Exception as e:
             logger.error(f"Failed to connect to MongoDB (attempt {attempt + 1}/{max_retries}): {str(e)}")
             if attempt < max_retries - 1:
-                time.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+                await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
             else:
                 logger.error("Max retries reached. Could not connect to MongoDB.")
                 raise RuntimeError(f"Failed to connect to MongoDB after {max_retries} attempts: {str(e)}")
@@ -55,61 +60,53 @@ def initialize_db(max_retries=3, retry_delay=5):
             logger.error(f"Unexpected error during MongoDB initialization: {str(e)}")
             raise
 
-def get_db():
-    """Get the database connection"""
+async def get_db():
+    """Get the async database connection."""
     global db
     if db is None:
-        initialize_db()
+        await initialize_db()
     if db is None:
-        raise RuntimeError("Database connection could not be established")
+        raise RuntimeError("Async database connection could not be established")
     return db
 
-def get_fs():
-    """Get the GridFS instance"""
+async def get_fs():
+    """Get the async GridFS instance."""
     global fs
     if fs is None:
-        initialize_db()
+        await initialize_db()
     if fs is None:
-        raise RuntimeError("GridFS could not be initialized")
+        raise RuntimeError("Async GridFS could not be initialized")
     return fs
 
-def store_issue(
+async def store_issue(
+    db,
+    fs,
     issue_id: str,
     image_content: bytes,
-    description: str,
+    report: Dict[str, Any],
     address: str,
     zip_code: Optional[str],
     latitude: float,
     longitude: float,
     issue_type: str,
     severity: str,
-    report: Dict[str, Any],
     category: str,
     priority: str,
-    report_id: str,
-    status: str,
-    authority_email: List[str] = None,
-    authority_name: List[str] = None,
-    timestamp_formatted: str = None,
-    timezone_name: str = None,
-    user_email: Optional[str] = None,
-    available_authorities: Optional[List[Dict[str, str]]] = None
+    user_email: Optional[str],
+    responsible_authorities: List[Dict[str, Any]],
+    available_authorities: List[Dict[str, Any]]
 ) -> str:
     """
     Store an issue in MongoDB with zip code and return the image ID.
     """
     try:
-        db = get_db()
-        fs = get_fs()
-
         # Validate required fields
         required_fields = {
             "issue_type": issue_type,
             "severity": severity,
             "category": category,
             "priority": priority,
-            "report_id": report_id,
-            "status": status
+            "report": report
         }
         missing_fields = [k for k, v in required_fields.items() if not v]
         if missing_fields:
@@ -121,6 +118,8 @@ def store_issue(
             zip_code = "N/A"
 
         # Validate authority fields
+        authority_email = [auth.get("email", "snapfix@momntumai.com") for auth in responsible_authorities]
+        authority_name = [auth.get("name", "City Department") for auth in responsible_authorities]
         if not authority_email or not authority_name or None in authority_email or None in authority_name:
             authority_email = ["snapfix@momntumai.com"]
             authority_name = ["City Department"]
@@ -144,16 +143,16 @@ def store_issue(
             logger.debug(f"No available_authorities provided for issue {issue_id}. Using default.")
 
         # Store the image in GridFS
-        image_id = fs.put(
-            image_content,
+        image_id = fs.upload_from_stream(
             filename=f"{issue_id}.jpg",
-            content_type="image/jpeg"
+            source=image_content,
+            metadata={"issue_id": issue_id}
         )
 
         # Create issue document with fallback values
         issue_document = {
             "_id": issue_id,
-            "description": description or "No description provided",
+            "description": report.get("issue_overview", {}).get("summary_explanation", "No description provided"),
             "address": address or "Unknown Address",
             "zip_code": zip_code or "N/A",
             "latitude": latitude or 0.0,
@@ -161,38 +160,42 @@ def store_issue(
             "issue_type": issue_type,
             "severity": severity,
             "image_id": str(image_id),
-            "status": status,
+            "status": "pending",
             "report": report or {"message": "No report generated"},
             "category": category,
             "priority": priority,
-            "report_id": report_id,
+            "report_id": report.get("template_fields", {}).get("oid", ""),
             "timestamp": datetime.now().isoformat(),
             "authority_email": authority_email,
             "authority_name": authority_name,
-            "timestamp_formatted": timestamp_formatted or datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "timezone_name": timezone_name or "UTC",
+            "timestamp_formatted": report.get("template_fields", {}).get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M")),
+            "timezone_name": report.get("template_fields", {}).get("timezone_name", "UTC"),
             "user_email": user_email,
             "available_authorities": available_authorities,
             "decline_reason": None,
             "decline_history": [],
-            "email_status": None,
+            "email_status": "pending",
             "email_errors": []
         }
 
         # Insert issue into MongoDB
-        db.issues.insert_one(issue_document)
-        logger.info(f"Stored issue {issue_id} with image ID {image_id}, authorities: {authority_name}, user_email: {user_email}, zip_code: {zip_code or 'N/A'}, available_authorities: {available_authorities}")
+        await db.issues.insert_one(issue_document)
+        logger.info(
+            f"Stored issue {issue_id} with image ID {image_id}, "
+            f"authorities: {authority_name}, user_email: {user_email}, "
+            f"zip_code: {zip_code or 'N/A'}, available_authorities: {available_authorities}"
+        )
         return str(image_id)
     except Exception as e:
         logger.error(f"Failed to store issue {issue_id}: {str(e)}", exc_info=True)
         raise
 
-def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_reason: str) -> bool:
+async def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_reason: str) -> bool:
     """
     Update a pending issue with a new report, decline reason, and append to decline history.
     """
     try:
-        db = get_db()
+        db = await get_db()
 
         # Validate inputs
         if not report:
@@ -206,7 +209,7 @@ def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_reason: 
             "timestamp": datetime.now().isoformat()
         }
 
-        result = db.issues.update_one(
+        result = await db.issues.update_one(
             {"_id": issue_id, "status": "pending"},
             {
                 "$set": {
@@ -228,15 +231,15 @@ def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_reason: 
         logger.error(f"Failed to update pending issue {issue_id}: {str(e)}", exc_info=True)
         raise
 
-def get_issues() -> List[Dict[str, Any]]:
+async def get_issues() -> List[Dict[str, Any]]:
     """
     Retrieve all issues from MongoDB.
     """
     try:
-        db = get_db()
-        issues = list(db.issues.find().sort("timestamp", -1))
-        # Ensure default values and list conversion for authority fields
-        for issue in issues:
+        db = await get_db()
+        issues = []
+        async for issue in db.issues.find().sort("timestamp", -1):
+            # Ensure default values and list conversion for authority fields
             issue["issue_type"] = issue.get("issue_type", "Unknown Issue")
             issue["description"] = issue.get("description", "No description")
             issue["address"] = issue.get("address", "Unknown Address")
@@ -270,19 +273,20 @@ def get_issues() -> List[Dict[str, Any]]:
             issue["authority_name"] = authority_name
             issue["timestamp_formatted"] = issue.get("timestamp_formatted", datetime.now().strftime("%Y-%m-%d %H:%M"))
             issue["timezone_name"] = issue.get("timezone_name", "UTC")
+            issues.append(issue)
         logger.info(f"Retrieved {len(issues)} issues from MongoDB")
         return issues
     except Exception as e:
         logger.error(f"Failed to retrieve issues: {str(e)}", exc_info=True)
         raise
 
-def get_report(issue_id: str) -> Dict[str, Any]:
+async def get_report(issue_id: str) -> Dict[str, Any]:
     """
     Retrieve a single issue by ID.
     """
     try:
-        db = get_db()
-        issue = db.issues.find_one({"_id": issue_id})
+        db = await get_db()
+        issue = await db.issues.find_one({"_id": issue_id})
         if not issue:
             logger.warning(f"No issue found with ID {issue_id}")
             return None
@@ -326,18 +330,18 @@ def get_report(issue_id: str) -> Dict[str, Any]:
         logger.error(f"Failed to retrieve issue {issue_id}: {str(e)}", exc_info=True)
         raise
 
-def update_issue_status(issue_id: str, status: str) -> bool:
+async def update_issue_status(issue_id: str, status: str) -> bool:
     """
     Update the status of an issue.
     """
     try:
-        db = get_db()
+        db = await get_db()
 
         valid_statuses = ["pending", "accepted", "rejected", "completed"]
         if status not in valid_statuses:
             raise ValueError(f"Invalid status. Must be one of {valid_statuses}")
 
-        result = db.issues.update_one(
+        result = await db.issues.update_one(
             {"_id": issue_id},
             {
                 "$set": {

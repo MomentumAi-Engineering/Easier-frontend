@@ -75,8 +75,8 @@ class Issue(BaseModel):
     timezone_name: Optional[str] = None
     email_status: Optional[str] = None
     email_errors: Optional[List[str]] = None
-    available_authorities: Optional[List[Dict[str, str]]] = None  # New field for available authorities
-    recommended_actions: Optional[List[str]] = None  # New field for recommended actions
+    available_authorities: Optional[List[Dict[str, str]]] = None
+    recommended_actions: Optional[List[str]] = None
     
     class Config:
         validate_assignment = True
@@ -237,7 +237,7 @@ Disclaimer: This AI-generated report may contain inaccuracies. Refer to the atta
         template = templates.get(department_type, templates["general"])
         return template["subject"], template["text_content"]
 
-def send_authority_email(
+async def send_authority_email(
     issue_id: str,
     authorities: List[Dict[str, str]],
     issue_type: str,
@@ -275,7 +275,6 @@ def send_authority_email(
     recommended_actions_html = ""
     
     for i, action in enumerate(recommended_actions):
-        # Determine urgency class based on keywords in the action
         urgency_class = "urgency-immediate" if "immediately" in action.lower() else \
                         "urgency-high" if "urgent" in action.lower() or "24 hours" in action.lower() else \
                         "urgency-medium" if "48 hours" in action.lower() else "urgency-low"
@@ -296,7 +295,6 @@ def send_authority_email(
         </div>
         """
     
-    # Enhanced HTML template with professional design
     html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -475,7 +473,6 @@ def send_authority_email(
             transform: scale(1.02);
         }}
         
-        /* Recommended Actions Section - Enhanced */
         .actions-container {{
             background: linear-gradient(to right, #f7fafc, #edf2f7);
             border-radius: 10px;
@@ -551,7 +548,6 @@ def send_authority_email(
             background-color: #38a169;
         }}
         
-        /* Table styling */
         table {{
             width: 100%;
             border-collapse: collapse;
@@ -575,7 +571,6 @@ def send_authority_email(
             text-align: right;
         }}
         
-        /* Call to action box */
         .cta-box {{
             background: linear-gradient(135deg, #ebf8ff, #bee3f8);
             padding: 20px;
@@ -739,7 +734,7 @@ def send_authority_email(
     for authority in authorities:
         try:
             subject, text_content = get_department_email_content(
-                authority.get("type", "general"),  # Default to "general" if type is missing
+                authority.get("type", "general"),
                 {
                     "issue_type": issue_type,
                     "address": final_address,
@@ -758,7 +753,7 @@ def send_authority_email(
             )
             logger.debug(f"Sending email to [redacted] for {authority.get('type', 'general')} with subject: {subject}")
             success = send_email(
-                to_email=authority.get("email", "snapfix@momntumai.com"),  # Default email if missing
+                to_email=authority.get("email", "snapfix@momntumai.com"),
                 subject=subject,
                 html_content=html_content,
                 text_content=text_content,
@@ -776,8 +771,8 @@ def send_authority_email(
             errors.append(f"Failed to send email to {authority.get('email', 'snapfix@momntumai.com')}: {str(e)}")
     
     try:
-        db = get_db()
-        db.issues.update_one(
+        db = await get_db()
+        await db.issues.update_one(
             {"_id": issue_id},
             {
                 "$set": {
@@ -812,8 +807,8 @@ async def create_issue(
 ):
     logger.debug(f"Creating issue with address: {address}, zip: {zip_code}, lat: {latitude}, lon: {longitude}, user_email: [redacted]")
     try:
-        db = get_db()
-        fs = get_fs()
+        db = await get_db()
+        fs = await get_fs()
         logger.debug("Database and GridFS initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}", exc_info=True)
@@ -831,8 +826,8 @@ async def create_issue(
         raise HTTPException(status_code=500, detail=f"Failed to read image: {str(e)}")
     
     try:
-        # Pass empty string as description since we're removing it
-        issue_type, severity, confidence, category, priority = classify_issue(image_content, "")
+        # Await classify_issue since it's async
+        issue_type, severity, confidence, category, priority = await classify_issue(image_content, "")
         if not issue_type:
             logger.error("Failed to classify issue type")
             raise ValueError("Failed to classify issue type")
@@ -864,8 +859,8 @@ async def create_issue(
     
     issue_id = str(uuid.uuid4())
     try:
-        # Pass empty string as description
-        report = generate_report(
+        # Await generate_report since it's async
+        report = await generate_report(
             image_content=image_content,
             description="",
             issue_type=issue_type,
@@ -900,7 +895,6 @@ async def create_issue(
         responsible_authorities = authority_data.get("responsible_authorities", [{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}])
         available_authorities = authority_data.get("available_authorities", [{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}])
         
-        # Validate authority structure to prevent KeyError
         responsible_authorities = [
             {**{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}, **auth}
             for auth in responsible_authorities
@@ -926,34 +920,36 @@ async def create_issue(
     timestamp_formatted = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
     
     try:
-        # Store issue without recommended_actions first
-        image_id = store_issue(
+
+        final_zip_code = zip_code if zip_code else "N/A"
+        final_address = final_address if final_address else "Unknown Address"
+        final_latitude = latitude if latitude else 0.0
+        final_longitude = longitude if longitude else 0.0
+        image_id = await store_issue(
+            db=db,
+            fs=fs,
             issue_id=issue_id,
             image_content=image_content,
-            description="",  # Empty description
+            report=report,
             address=final_address,
-            zip_code=zip_code,
-            latitude=latitude,
-            longitude=longitude,
+            zip_code=final_zip_code,
+            latitude=final_latitude,
+            longitude=final_longitude,
             issue_type=issue_type,
             severity=severity,
-            report=report,
             category=category,
             priority=priority,
-            report_id=report["template_fields"]["oid"],
-            status="pending",
-            authority_email=authority_emails,
-            authority_name=authority_names,
-            timestamp_formatted=timestamp_formatted,
-            timezone_name=timezone_name,
             user_email=user_email,
-            available_authorities=available_authorities
-            # Removed recommended_actions parameter
+            responsible_authorities=report["responsible_authorities_or_parties"],
+            available_authorities=report["available_authorities"]
         )
         logger.info(f"Issue {issue_id} stored successfully with image_id {image_id}")
-        
-        # Now update the document to add recommended_actions
-        db = get_db()
+    except Exception as e:
+        logger.error(f"Failed to store issue {issue_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to store issue: {str(e)}")
+
+    try:
+        db = await get_db()
         db.issues.update_one(
             {"_id": issue_id},
             {"$set": {"recommended_actions": recommended_actions}}
@@ -965,7 +961,7 @@ async def create_issue(
     
     try:
         user_authority = [{"name": "User", "email": user_email or "snapfix@momntumai.com", "type": "general"}]
-        email_success = send_authority_email(
+        email_success = await send_authority_email(
             issue_id=issue_id,
             authorities=user_authority,
             issue_type=issue_type,
@@ -973,7 +969,6 @@ async def create_issue(
             zip_code=zip_code or "N/A",
             timestamp_formatted=timestamp_formatted,
             report=report,
-            description="",  # Empty description
             confidence=confidence,
             category=category,
             timezone_name=timezone_name,
@@ -982,7 +977,7 @@ async def create_issue(
             image_content=image_content,
             is_user_review=True
         )
-        db = get_db()
+        db = await get_db()
         db.issues.update_one(
             {"_id": issue_id},
             {
@@ -1000,11 +995,11 @@ async def create_issue(
         message="Please review the generated report and select responsible authorities",
         report={
             "issue_id": issue_id,
-            "report": report,  # This now includes recommended_actions
+            "report": report,
             "authority_email": authority_emails,
             "authority_name": authority_names,
             "available_authorities": available_authorities,
-            "recommended_actions": recommended_actions,  # Also include as separate field
+            "recommended_actions": recommended_actions,
             "timestamp_formatted": timestamp_formatted,
             "timezone_name": timezone_name,
             "image_content": base64.b64encode(image_content).decode('utf-8')
@@ -1015,15 +1010,15 @@ async def create_issue(
 async def submit_issue(issue_id: str, request: SubmitRequest):
     logger.debug(f"Processing submit request for issue {issue_id}")
     try:
-        db = get_db()
-        fs = get_fs()
+        db = await get_db()
+        fs = await get_fs()
         logger.debug("Database and GridFS initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database for issue {issue_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
     
     try:
-        issue = db.issues.find_one({"_id": issue_id})
+        issue = await db.issues.find_one({"_id": issue_id})
         if not issue:
             logger.error(f"Issue {issue_id} not found in database")
             raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
@@ -1040,7 +1035,6 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
         logger.error(f"Issue {issue_id} missing required fields: {missing_fields}")
         raise HTTPException(status_code=400, detail=f"Issue missing required fields: {missing_fields}")
     
-    # Validate selected authorities
     selected_authorities = request.selected_authorities
     if not selected_authorities:
         logger.error(f"No authorities selected for issue {issue_id}")
@@ -1055,7 +1049,8 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
             auth["type"] = auth.get("type", "custom")
     
     try:
-        image_content = fs.get(ObjectId(issue["image_id"])).read()
+        gridout = await fs.open_download_stream(ObjectId(issue["image_id"]))
+        image_content = await gridout.read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
     except gridfs.errors.NoFile:
         logger.error(f"Image not found for image_id {issue['image_id']} in issue {issue_id}")
@@ -1068,17 +1063,14 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
     report["responsible_authorities_or_parties"] = selected_authorities
     report["template_fields"]["zip_code"] = issue.get("zip_code", "N/A")
     
-    # Extract recommended actions from the report
     recommended_actions = report.get("recommended_actions", [])
-    
-    # Ensure recommended_actions are included in the report
     if "recommended_actions" not in report:
         report["recommended_actions"] = recommended_actions
     
     email_success = False
     email_errors = []
     try:
-        email_success = send_authority_email(
+        email_success = await send_authority_email(
             issue_id=issue_id,
             authorities=selected_authorities,
             issue_type=issue.get("issue_type", "Unknown Issue"),
@@ -1102,9 +1094,9 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
         email_errors = [str(e)]
     
     try:
-        update_issue_status(issue_id, "submitted")
-        db = get_db()
-        db.issues.update_one(
+        await update_issue_status(issue_id, "submitted")
+        db = await get_db()
+        await db.issues.update_one(
             {"_id": issue_id},
             {
                 "$set": {
@@ -1116,7 +1108,7 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
                     "status": "submitted",
                     "decline_reason": None,
                     "decline_history": [],
-                    "recommended_actions": recommended_actions  # Update recommended actions
+                    "recommended_actions": recommended_actions
                 }
             }
         )
@@ -1131,10 +1123,10 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
         message=f"Issue submitted successfully to selected authorities. {'Emails sent successfully' if email_success else 'Email sending failed: ' + '; '.join(email_errors)}",
         report={
             "issue_id": issue_id,
-            "report": report,  # This now includes recommended_actions
+            "report": report,
             "authority_email": [auth["email"] for auth in selected_authorities],
             "authority_name": [auth["name"] for auth in selected_authorities],
-            "recommended_actions": recommended_actions,  # Also include as separate field
+            "recommended_actions": recommended_actions,
             "timestamp_formatted": issue.get("timestamp_formatted", datetime.utcnow().strftime("%Y-%m-%d %H:%M")),
             "zip_code": issue.get("zip_code", "N/A"),
             "timezone_name": issue.get("timezone_name", "UTC")
@@ -1145,15 +1137,15 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
 async def accept_issue(issue_id: str, request: AcceptRequest):
     logger.debug(f"Processing accept request for issue {issue_id}")
     try:
-        db = get_db()
-        fs = get_fs()
+        db = await get_db()
+        fs = await get_fs()
         logger.debug("Database and GridFS initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database for issue {issue_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
     
     try:
-        issue = db.issues.find_one({"_id": issue_id})
+        issue = await db.issues.find_one({"_id": issue_id})
         if not issue:
             logger.error(f"Issue {issue_id} not found in database")
             raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
@@ -1188,15 +1180,13 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
         report["template_fields"].pop("tracking_link", None)
         report["template_fields"]["zip_code"] = issue.get("zip_code", "N/A")
     
-    # Extract recommended actions from the report
     recommended_actions = report.get("recommended_actions", [])
-    
-    # Ensure recommended_actions are included in the report
     if "recommended_actions" not in report:
         report["recommended_actions"] = recommended_actions
     
     try:
-        image_content = fs.get(ObjectId(issue["image_id"])).read()
+        gridout = await fs.open_download_stream(ObjectId(issue["image_id"])).read()
+        image_content = await gridout.read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
     except gridfs.errors.NoFile:
         logger.error(f"Image not found for image_id {issue['image_id']} in issue {issue_id}")
@@ -1226,7 +1216,7 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
     email_success = False
     email_errors = []
     try:
-        email_success = send_authority_email(
+        email_success = await send_authority_email(
             issue_id=issue_id,
             authorities=authorities,
             issue_type=issue.get("issue_type", "Unknown Issue"),
@@ -1250,9 +1240,9 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
         email_errors = [str(e)]
     
     try:
-        update_issue_status(issue_id, "accepted")
-        db = get_db()
-        db.issues.update_one(
+        await update_issue_status(issue_id, "accepted")
+        db = await get_db()
+        await db.issues.update_one(
             {"_id": issue_id},
             {
                 "$set": {
@@ -1264,7 +1254,7 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
                     "status": "accepted",
                     "decline_reason": None,
                     "decline_history": [],
-                    "recommended_actions": recommended_actions  # Update recommended actions
+                    "recommended_actions": recommended_actions
                 }
             }
         )
@@ -1279,10 +1269,10 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
         message=f"Thank you for using SnapFix! Issue accepted and {'emails sent successfully' if email_success else 'email sending failed: ' + '; '.join(email_errors)}",
         report={
             "issue_id": issue_id,
-            "report": report,  # This now includes recommended_actions
+            "report": report,
             "authority_email": [auth["email"] for auth in authorities],
             "authority_name": [auth["name"] for auth in authorities],
-            "recommended_actions": recommended_actions,  # Also include as separate field
+            "recommended_actions": recommended_actions,
             "timestamp_formatted": issue.get("timestamp_formatted", datetime.utcnow().strftime("%Y-%m-%d %H:%M")),
             "zip_code": issue.get("zip_code", "N/A"),
             "timezone_name": issue.get("timezone_name", "UTC")
@@ -1293,15 +1283,15 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
 async def decline_issue(issue_id: str, request: DeclineRequest):
     logger.debug(f"Processing decline request for issue {issue_id} with reason: {request.decline_reason}")
     try:
-        db = get_db()
-        fs = get_fs()
+        db = await get_db()
+        fs = await get_fs()
         logger.debug("Database and GridFS initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database for issue {issue_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
     
     try:
-        issue = db.issues.find_one({"_id": issue_id})
+        issue = await db.issues.find_one({"_id": issue_id})
         if not issue:
             logger.error(f"Issue {issue_id} not found in database")
             raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
@@ -1323,7 +1313,7 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
         raise HTTPException(status_code=400, detail="Decline reason must be at least 5 characters long")
     
     try:
-        image_content = fs.get(ObjectId(issue["image_id"])).read()
+        image_content = await fs.open_download_stream(ObjectId(issue["image_id"])).read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
     except gridfs.errors.NoFile:
         logger.error(f"Image not found for image_id {issue['image_id']} in issue {issue_id}")
@@ -1351,10 +1341,9 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
         report["template_fields"]["zip_code"] = issue.get("zip_code", "N/A")
     
     try:
-        # Pass empty string as description
-        updated_report = generate_report(
+        updated_report = await generate_report(
             image_content=image_content,
-            description="",  # Empty description
+            description="",
             issue_type=issue.get("issue_type", "Unknown Issue"),
             severity=issue.get("severity", "Medium"),
             address=issue.get("address", "Unknown Address"),
@@ -1370,10 +1359,7 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
         updated_report["template_fields"].pop("tracking_link", None)
         updated_report["template_fields"]["zip_code"] = issue.get("zip_code", "N/A")
         
-        # Extract recommended actions from the updated report
         recommended_actions = updated_report.get("recommended_actions", [])
-        
-        # Ensure recommended_actions are included in the report
         if "recommended_actions" not in updated_report:
             updated_report["recommended_actions"] = recommended_actions
         
@@ -1386,7 +1372,7 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
     email_errors = []
     try:
         user_authority = [{"name": "User", "email": issue.get("user_email", "snapfix@momntumai.com"), "type": "general"}]
-        email_success = send_authority_email(
+        email_success = await send_authority_email(
             issue_id=issue_id,
             authorities=user_authority,
             issue_type=issue.get("issue_type", "Unknown Issue"),
@@ -1416,8 +1402,8 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
             "reason": request.decline_reason,
             "timestamp": datetime.utcnow().isoformat()
         })
-        db = get_db()
-        db.issues.update_one(
+        db = await get_db()
+        await db.issues.update_one(
             {"_id": issue_id},
             {
                 "$set": {
@@ -1427,7 +1413,7 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
                     "email_status": "sent" if email_success else "failed",
                     "email_errors": email_errors,
                     "status": "pending",
-                    "recommended_actions": recommended_actions  # Update recommended actions
+                    "recommended_actions": recommended_actions
                 }
             }
         )
@@ -1442,10 +1428,10 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
         message=f"Issue declined with reason: {request.decline_reason}. Updated report sent for review. {'Emails sent successfully' if email_success else 'Email sending failed: ' + '; '.join(email_errors)}",
         report={
             "issue_id": issue_id,
-            "report": updated_report,  # This now includes recommended_actions
+            "report": updated_report,
             "authority_email": [issue.get("user_email", "snapfix@momntumai.com")],
             "authority_name": ["User"],
-            "recommended_actions": recommended_actions,  # Also include as separate field
+            "recommended_actions": recommended_actions,
             "timestamp_formatted": issue.get("timestamp_formatted", datetime.utcnow().strftime("%Y-%m-%d %H:%M")),
             "zip_code": issue.get("zip_code", "N/A"),
             "timezone_name": issue.get("timezone_name", "UTC"),
@@ -1456,12 +1442,11 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
 @router.get("/issues", response_model=List[Issue])
 async def list_issues():
     try:
-        db = get_db()
-        issues = get_issues()
+        db = await get_db()
+        issues = await get_issues()
         formatted_issues = []
         for issue in issues:
             try:
-                # Fix timestamp handling
                 timestamp = issue.get('timestamp')
                 if isinstance(timestamp, datetime):
                     issue['timestamp'] = timestamp.isoformat()
@@ -1499,8 +1484,8 @@ async def list_issues():
 @router.put("/issues/{issue_id}/status")
 async def update_status(issue_id: str, status_update: IssueStatusUpdate):
     try:
-        db = get_db()
-        updated = update_issue_status(issue_id, status_update.status)
+        db = await get_db()
+        updated = await update_issue_status(issue_id, status_update.status)
         if not updated:
             logger.error(f"Issue {issue_id} not found for status update")
             raise HTTPException(status_code=404, detail="Issue not found")
@@ -1513,9 +1498,9 @@ async def update_status(issue_id: str, status_update: IssueStatusUpdate):
 @router.get("/issues/{issue_id}/image")
 async def get_issue_image(issue_id: str):
     try:
-        db = get_db()
-        fs = get_fs()
-        issue = db.issues.find_one({"_id": issue_id})
+        db = await get_db()
+        fs = await get_fs()
+        issue = await db.issues.find_one({"_id": issue_id})
         if not issue:
             logger.error(f"Issue {issue_id} not found for image retrieval")
             raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
@@ -1526,9 +1511,9 @@ async def get_issue_image(issue_id: str):
             raise HTTPException(status_code=404, detail=f"No image found for issue {issue_id}")
             
         try:
-            image = fs.get(ObjectId(image_id))
+            gridout = await fs.open_download_stream(ObjectId(image_id))
             logger.debug(f"Retrieved image {image_id} for issue {issue_id}")
-            return StreamingResponse(image, media_type="image/jpeg")
+            return StreamingResponse(gridout, media_type="image/jpeg")
         except gridfs.errors.NoFile:
             logger.error(f"Image {image_id} not found in GridFS for issue {issue_id}")
             raise HTTPException(status_code=404, detail=f"Image {image_id} not found")
@@ -1542,7 +1527,7 @@ async def get_issue_image(issue_id: str):
 @router.get("/health")
 async def health_check():
     try:
-        db = get_db()
+        db = await get_db()
         db.command("ping")
         logger.debug("Health check passed: database connected")
         return {"status": "healthy", "database": "connected"}

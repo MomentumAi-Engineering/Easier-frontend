@@ -49,7 +49,7 @@
   "street dog": ["animal_control"],
 
   "dead_animal": ["animal_control"],
-  "animal carcass": ["animal_control"],
+  "animal_carcass": ["animal_control"],
 
   "animal_accident": ["animal_control", "police"],
   "wildlife hit": ["animal_control", "police"],
