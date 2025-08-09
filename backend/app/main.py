@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from routes.issues import router as issues_router
 import logging
 import os
@@ -19,15 +20,18 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(title="SnapFix AI Backend")
 
+# Templates (for HTML pages)
+templates = Jinja2Templates(directory="templates")
+
 # Enable CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://snapfix-ai-1.onrender.com",  # Frontend URL on Render
-        "https://snapfix-ai.onrender.com",    # Backend URL (for same-origin or misconfig)
-        "http://localhost:5173",             # Local development (Vite default)
-        "http://localhost:3000",             # Local development (React default)
-        "http://localhost:3001"              # Local development (Alternative port)
+        "https://snapfixai.io",              # Frontend URL on SnapFix AI
+        "http://localhost:5173",              # Local development (Vite default)
+        "http://localhost:3000",              # Local development (React default)
+        "http://localhost:3001"               # Local development (Alternative port)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -95,48 +99,68 @@ async def get_authorities_by_zip_code(zip_code: str):
         if not zip_code_authorities_path.exists():
             logger.error("Zip code authorities file not found")
             raise HTTPException(status_code=404, detail="Authorities data not found")
-            
+
         with open(zip_code_authorities_path, "r") as f:
             authorities_data = json.load(f)
-        
+
         # Get authorities for the specified zip code or use default
-        authorities = {}
         if zip_code in authorities_data:
             authorities = authorities_data[zip_code]
         else:
             logger.warning(f"No authorities found for zip code {zip_code}, using default")
             authorities = authorities_data.get("default", {})
-        
+
         # Format authorities as a list of objects by type
         formatted_authorities = {}
         for auth_type, auth_list in authorities.items():
-            if auth_type not in formatted_authorities:
-                formatted_authorities[auth_type] = []
-            formatted_authorities[auth_type].extend(auth_list)
-            
+            formatted_authorities.setdefault(auth_type, []).extend(auth_list)
+
         return formatted_authorities
-            
+
     except Exception as e:
         logger.error(f"Error fetching authorities for zip code {zip_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching authorities: {str(e)}")
 
-# NEW REPORT ENDPOINT - ADDED HERE
-@app.get("/report")
-async def get_report():
-    logger.debug("Report endpoint accessed")
+# NEW: JSON report endpoint for programmatic access
+@app.get("/api/report")
+async def get_report_json():
+    logger.debug("Report JSON endpoint accessed")
     try:
-        # Implement your report logic here
-        # Example: Fetch data from database, process it, and return
+        # TODO: Replace with actual data fetching/processing
+        report_data = []
         return {
             "status": "success",
             "message": "Report generated successfully",
-            "data": []  # Replace with actual report data
+            "data": report_data
         }
     except Exception as e:
-        logger.error(f"Error generating report: {str(e)}", exc_info=True)
+        logger.error(f"Error generating report JSON: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate report: {str(e)}"
+        )
+
+# UPDATED: HTML report page for browser access
+@app.get("/report", response_class=HTMLResponse)
+async def get_report_page(request: Request):
+    logger.debug("Report HTML endpoint accessed")
+    try:
+        # TODO: Replace with actual data fetching/processing
+        report_data = []
+        return templates.TemplateResponse(
+            "report.html",
+            {
+                "request": request,
+                "status": "success",
+                "message": "Report generated successfully",
+                "data": report_data
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating report page: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate report page: {str(e)}"
         )
 
 # Include API routes
