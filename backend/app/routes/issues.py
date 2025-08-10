@@ -16,6 +16,7 @@ from datetime import datetime
 import pytz
 from typing import List, Optional, Dict, Any
 import gridfs.errors
+import asyncio
 
 # Setup logging
 logging.basicConfig(
@@ -826,7 +827,6 @@ async def create_issue(
         raise HTTPException(status_code=500, detail=f"Failed to read image: {str(e)}")
     
     try:
-        # Await classify_issue since it's async
         issue_type, severity, confidence, category, priority = await classify_issue(image_content, "")
         if not issue_type:
             logger.error("Failed to classify issue type")
@@ -859,7 +859,6 @@ async def create_issue(
     
     issue_id = str(uuid.uuid4())
     try:
-        # Await generate_report since it's async
         report = await generate_report(
             image_content=image_content,
             description="",
@@ -878,10 +877,7 @@ async def create_issue(
         report["template_fields"]["zip_code"] = zip_code or "N/A"
         report["template_fields"]["address"] = final_address or "Not specified"
         
-        # Extract recommended actions from the report
         recommended_actions = report.get("recommended_actions", [])
-        
-        # Ensure recommended_actions are included in the report
         if "recommended_actions" not in report:
             report["recommended_actions"] = recommended_actions
         
@@ -920,7 +916,6 @@ async def create_issue(
     timestamp_formatted = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
     
     try:
-
         final_zip_code = zip_code if zip_code else "N/A"
         final_address = final_address if final_address else "Unknown Address"
         final_latitude = latitude if latitude else 0.0
@@ -947,7 +942,7 @@ async def create_issue(
     except Exception as e:
         logger.error(f"Failed to store issue {issue_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to store issue: {str(e)}")
-
+    
     try:
         db = await get_db()
         db.issues.update_one(
@@ -1049,6 +1044,7 @@ async def submit_issue(issue_id: str, request: SubmitRequest):
             auth["type"] = auth.get("type", "custom")
     
     try:
+        # Get image content from GridFS
         gridout = await fs.open_download_stream(ObjectId(issue["image_id"]))
         image_content = await gridout.read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
@@ -1185,7 +1181,8 @@ async def accept_issue(issue_id: str, request: AcceptRequest):
         report["recommended_actions"] = recommended_actions
     
     try:
-        gridout = await fs.open_download_stream(ObjectId(issue["image_id"])).read()
+        # Get image content from GridFS
+        gridout = await fs.open_download_stream(ObjectId(issue["image_id"]))
         image_content = await gridout.read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
     except gridfs.errors.NoFile:
@@ -1313,7 +1310,9 @@ async def decline_issue(issue_id: str, request: DeclineRequest):
         raise HTTPException(status_code=400, detail="Decline reason must be at least 5 characters long")
     
     try:
-        image_content = await fs.open_download_stream(ObjectId(issue["image_id"])).read()
+        # Get image content from GridFS
+        gridout = await fs.open_download_stream(ObjectId(issue["image_id"]))
+        image_content = await gridout.read()
         logger.debug(f"Image {issue['image_id']} retrieved for issue {issue_id}")
     except gridfs.errors.NoFile:
         logger.error(f"Image not found for image_id {issue['image_id']} in issue {issue_id}")

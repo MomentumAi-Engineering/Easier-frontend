@@ -292,7 +292,7 @@ function Navbar() {
         </div>
       </nav>
       
-      <style jsx>{`
+      <style>{`
         :root {
           --primary-color: #6366f1;
           --primary-dark: #4f46e5;

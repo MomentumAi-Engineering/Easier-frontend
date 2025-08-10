@@ -111,12 +111,12 @@ async def store_issue(
         missing_fields = [k for k, v in required_fields.items() if not v]
         if missing_fields:
             raise ValueError(f"Missing required fields: {missing_fields}")
-
+        
         # Validate zip code format (5-digit US zip code)
         if zip_code and not re.match(r"^\d{5}$", zip_code):
             logger.warning(f"Invalid zip code format for issue {issue_id}: {zip_code}. Setting to 'N/A'.")
             zip_code = "N/A"
-
+        
         # Validate authority fields
         authority_email = [auth.get("email", "snapfix@momntumai.com") for auth in responsible_authorities]
         authority_name = [auth.get("name", "City Department") for auth in responsible_authorities]
@@ -126,7 +126,7 @@ async def store_issue(
             logger.warning(f"No valid authorities provided for issue {issue_id}. Using defaults.")
         elif len(authority_email) != len(authority_name):
             raise ValueError("authority_email and authority_name lists must have the same length")
-
+        
         # Validate available_authorities
         if available_authorities is not None:
             for auth in available_authorities:
@@ -141,14 +141,19 @@ async def store_issue(
         else:
             available_authorities = [{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}]
             logger.debug(f"No available_authorities provided for issue {issue_id}. Using default.")
-
-        # Store the image in GridFS
-        image_id = fs.upload_from_stream(
-            filename=f"{issue_id}.jpg",
-            source=image_content,
-            metadata={"issue_id": issue_id}
-        )
-
+        
+        # Store the image in GridFS - FIXED: Properly await the upload operation
+        try:
+            image_id = await fs.upload_from_stream(
+                filename=f"{issue_id}.jpg",
+                source=image_content,
+                metadata={"issue_id": issue_id}
+            )
+            logger.debug(f"Image uploaded successfully with ID: {image_id}")
+        except Exception as e:
+            logger.error(f"Failed to upload image for issue {issue_id}: {str(e)}", exc_info=True)
+            raise
+        
         # Create issue document with fallback values
         issue_document = {
             "_id": issue_id,
@@ -159,7 +164,7 @@ async def store_issue(
             "longitude": longitude or 0.0,
             "issue_type": issue_type,
             "severity": severity,
-            "image_id": str(image_id),
+            "image_id": str(image_id),  # Convert ObjectId to string
             "status": "pending",
             "report": report or {"message": "No report generated"},
             "category": category,
@@ -177,14 +182,25 @@ async def store_issue(
             "email_status": "pending",
             "email_errors": []
         }
-
+        
         # Insert issue into MongoDB
-        await db.issues.insert_one(issue_document)
-        logger.info(
-            f"Stored issue {issue_id} with image ID {image_id}, "
-            f"authorities: {authority_name}, user_email: {user_email}, "
-            f"zip_code: {zip_code or 'N/A'}, available_authorities: {available_authorities}"
-        )
+        try:
+            await db.issues.insert_one(issue_document)
+            logger.info(
+                f"Stored issue {issue_id} with image ID {image_id}, "
+                f"authorities: {authority_name}, user_email: {user_email}, "
+                f"zip_code: {zip_code or 'N/A'}, available_authorities: {available_authorities}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to insert issue document for {issue_id}: {str(e)}", exc_info=True)
+            # Try to clean up the uploaded image if document insertion fails
+            try:
+                await fs.delete(image_id)
+                logger.info(f"Cleaned up orphaned image {image_id} for issue {issue_id}")
+            except Exception as cleanup_error:
+                logger.error(f"Failed to clean up orphaned image {image_id}: {str(cleanup_error)}", exc_info=True)
+            raise
+        
         return str(image_id)
     except Exception as e:
         logger.error(f"Failed to store issue {issue_id}: {str(e)}", exc_info=True)
@@ -196,19 +212,18 @@ async def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_re
     """
     try:
         db = await get_db()
-
         # Validate inputs
         if not report:
             raise ValueError("Report cannot be empty")
         if not decline_reason:
             raise ValueError("Decline reason cannot be empty")
-
+        
         # Append to decline_history
         decline_entry = {
             "reason": decline_reason,
             "timestamp": datetime.now().isoformat()
         }
-
+        
         result = await db.issues.update_one(
             {"_id": issue_id, "status": "pending"},
             {
@@ -222,9 +237,11 @@ async def update_pending_issue(issue_id: str, report: Dict[str, Any], decline_re
                 }
             }
         )
+        
         if result.modified_count == 0:
             logger.warning(f"No pending issue found with ID {issue_id}")
             return False
+        
         logger.info(f"Updated pending issue {issue_id} with decline reason: {decline_reason}")
         return True
     except Exception as e:
@@ -238,6 +255,7 @@ async def get_issues() -> List[Dict[str, Any]]:
     try:
         db = await get_db()
         issues = []
+        
         async for issue in db.issues.find().sort("timestamp", -1):
             # Ensure default values and list conversion for authority fields
             issue["issue_type"] = issue.get("issue_type", "Unknown Issue")
@@ -253,6 +271,7 @@ async def get_issues() -> List[Dict[str, Any]]:
             issue["decline_reason"] = issue.get("decline_reason", None)
             issue["decline_history"] = issue.get("decline_history", [])
             issue["available_authorities"] = issue.get("available_authorities", [{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}])
+            
             # Clean authority_email
             authority_email = issue.get("authority_email", ["snapfix@momntumai.com"])
             if isinstance(authority_email, list):
@@ -262,6 +281,7 @@ async def get_issues() -> List[Dict[str, Any]]:
             else:
                 authority_email = [str(authority_email)] if authority_email else ["snapfix@momntumai.com"]
             issue["authority_email"] = authority_email
+            
             # Clean authority_name
             authority_name = issue.get("authority_name", ["City Department"])
             if isinstance(authority_name, list):
@@ -271,9 +291,18 @@ async def get_issues() -> List[Dict[str, Any]]:
             else:
                 authority_name = [str(authority_name)] if authority_name else ["City Department"]
             issue["authority_name"] = authority_name
+            
             issue["timestamp_formatted"] = issue.get("timestamp_formatted", datetime.now().strftime("%Y-%m-%d %H:%M"))
             issue["timezone_name"] = issue.get("timezone_name", "UTC")
+            
+            # Validate image_id
+            image_id = issue.get("image_id")
+            if image_id and not isinstance(image_id, str):
+                logger.warning(f"Invalid image_id format for issue {issue_id}: {type(image_id)}. Converting to string.")
+                issue["image_id"] = str(image_id)
+            
             issues.append(issue)
+        
         logger.info(f"Retrieved {len(issues)} issues from MongoDB")
         return issues
     except Exception as e:
@@ -290,6 +319,7 @@ async def get_report(issue_id: str) -> Dict[str, Any]:
         if not issue:
             logger.warning(f"No issue found with ID {issue_id}")
             return None
+        
         # Ensure default values and list conversion
         issue["issue_type"] = issue.get("issue_type", "Unknown Issue")
         issue["description"] = issue.get("description", "No description")
@@ -304,6 +334,7 @@ async def get_report(issue_id: str) -> Dict[str, Any]:
         issue["decline_reason"] = issue.get("decline_reason", None)
         issue["decline_history"] = issue.get("decline_history", [])
         issue["available_authorities"] = issue.get("available_authorities", [{"name": "City Department", "email": "snapfix@momntumai.com", "type": "general"}])
+        
         # Clean authority_email
         authority_email = issue.get("authority_email", ["snapfix@momntumai.com"])
         if isinstance(authority_email, list):
@@ -313,6 +344,7 @@ async def get_report(issue_id: str) -> Dict[str, Any]:
         else:
             authority_email = [str(authority_email)] if authority_email else ["snapfix@momntumai.com"]
         issue["authority_email"] = authority_email
+        
         # Clean authority_name
         authority_name = issue.get("authority_name", ["City Department"])
         if isinstance(authority_name, list):
@@ -322,8 +354,16 @@ async def get_report(issue_id: str) -> Dict[str, Any]:
         else:
             authority_name = [str(authority_name)] if authority_name else ["City Department"]
         issue["authority_name"] = authority_name
+        
         issue["timestamp_formatted"] = issue.get("timestamp_formatted", datetime.now().strftime("%Y-%m-%d %H:%M"))
         issue["timezone_name"] = issue.get("timezone_name", "UTC")
+        
+        # Validate image_id
+        image_id = issue.get("image_id")
+        if image_id and not isinstance(image_id, str):
+            logger.warning(f"Invalid image_id format for issue {issue_id}: {type(image_id)}. Converting to string.")
+            issue["image_id"] = str(image_id)
+        
         logger.info(f"Retrieved issue {issue_id}")
         return issue
     except Exception as e:
@@ -336,11 +376,10 @@ async def update_issue_status(issue_id: str, status: str) -> bool:
     """
     try:
         db = await get_db()
-
         valid_statuses = ["pending", "accepted", "rejected", "completed"]
         if status not in valid_statuses:
             raise ValueError(f"Invalid status. Must be one of {valid_statuses}")
-
+        
         result = await db.issues.update_one(
             {"_id": issue_id},
             {
@@ -353,11 +392,30 @@ async def update_issue_status(issue_id: str, status: str) -> bool:
                 }
             }
         )
+        
         if result.modified_count == 0:
             logger.warning(f"No issue found with ID {issue_id}")
             return False
+        
         logger.info(f"Updated status for issue {issue_id} to {status}")
         return True
     except Exception as e:
         logger.error(f"Failed to update issue {issue_id} status: {str(e)}", exc_info=True)
         raise
+
+async def get_image(issue_id: str) -> bytes:
+    """
+    Retrieve image content from GridFS by issue ID.
+    """
+    try:
+        fs = await get_fs()
+        # Find the image in GridFS
+        gridout = await fs.open_download_stream_by_name(f"{issue_id}.jpg")
+        image_content = await gridout.read()
+        return image_content
+    except gridfs.errors.NoFile:
+        logger.error(f"Image not found for issue {issue_id}")
+        raise HTTPException(status_code=404, detail=f"Image not found for issue {issue_id}")
+    except Exception as e:
+        logger.error(f"Failed to retrieve image for issue {issue_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve image: {str(e)}")
