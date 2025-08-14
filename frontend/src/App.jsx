@@ -4,13 +4,16 @@ import ReportIssue from './pages/ReportIssue';
 import ViewIssues from './pages/ViewIssues';
 import NotFound from './pages/NotFound';
 import Navbar from './components/Navbar';
+import Dashboard from './pages/Dasboard'
 
 function App() {
   return (
     <>
       <Navbar />
       <Routes>
+        
         <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/report" element={<ReportIssue />} />
         <Route path="/view" element={<ViewIssues />} />
         <Route path="*" element={<NotFound />} />
