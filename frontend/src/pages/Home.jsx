@@ -180,7 +180,7 @@ function Home() {
             <motion.div className="text-left max-w-3xl">
   <h1 className="!text-4xl md:!text-4xl lg:!text-8xl font-extrabold mb-4 leading-tight tracking-tighter text-shadow-xl">
   <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-blue-300 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-2 after:bg-blue-500/30 after:rounded-md after:-z-10 inline-block">
-    Easier
+    Eaiser
   </span> AI is here...
 </h1>
 
@@ -215,7 +215,7 @@ function Home() {
           <div className="text-center mb-16">
             <motion.div className="inline-block bg-gradient-to-br from-blue-500 to-blue-700 text-white px-4 py-1.5 rounded-full font-semibold tracking-wide text-xs mb-4">CORE FEATURES</motion.div>
             <motion.h2 className="text-4xl lg:text-5xl font-extrabold mb-4 text-white">
-              Why <span className="text-blue-400 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-1.5 after:bg-blue-500/30 after:rounded-sm after:-z-10">Easier AI</span> Stands Apart
+              Why <span className="text-blue-400 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-1.5 after:bg-blue-500/30 after:rounded-sm after:-z-10">Eaiser AI</span> Stands Apart
             </motion.h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
               Our advanced AI technology streamlines the entire issue resolution process
@@ -332,7 +332,7 @@ function Home() {
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="flex flex-col items-center text-center">
             <div className="text-3xl font-extrabold text-white mb-6">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-400 bg-clip-text text-transparent">Easier</span> AI
+              <span className="bg-gradient-to-r from-blue-500 to-blue-400 bg-clip-text text-transparent">Eaiser</span> AI
             </div>
             <div className="flex gap-6 mb-6 flex-wrap justify-center">
               <Link to="/about" className="text-gray-400 text-lg hover:text-blue-400 transition-colors duration-300">About</Link>
