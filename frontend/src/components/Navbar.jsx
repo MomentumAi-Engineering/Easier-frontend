@@ -50,9 +50,9 @@ function Navbar() {
         <div className="flex items-center justify-between h-full px-6">
           
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 no-underline decoration-none hover:no-underline">
   <img src={logo} alt="Logo Icon" className="h-8" />
-  <img src={logoname} alt="Logo Text" className="h-5 w-30" />
+   <span className="text-xl font-semibold text-white">EaiserAi</span>
 </Link>
 
           {/* Links */}
