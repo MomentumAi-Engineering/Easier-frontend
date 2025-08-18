@@ -176,8 +176,7 @@ function Navbar() {
         </div>
       </nav>
 
-      {/* Spacer so content isn't hidden behind the fixed nav */}
-      <div className="pt-16" /> {/* reduced from pt-20 to avoid big white gap */}
+     
     </>
   );
 }
