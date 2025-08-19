@@ -68,9 +68,9 @@ const StatusMessage = ({ status }) => {
   };
   
   const getStatusIcon = () => {
-    if (status.includes('Error')) return <FiAlertCircle className="me-2" />;
-    if (status.includes('Loading')) return <FiLoader className="me-2 animate-spin" />;
-    return <FiCheckCircle className="me-2" />;
+    if (status.includes('Error')) return <FiAlertCircle className="mr-2" />;
+    if (status.includes('Loading')) return <FiLoader className="mr-2 animate-spin" />;
+    return <FiCheckCircle className="mr-2" />;
   };
   
   const getStatusEmoji = () => {
@@ -88,20 +88,20 @@ const StatusMessage = ({ status }) => {
           initial="initial"
           animate={controls}
           exit="exit"
-          className={`status-message ${
-            status.includes('Error') 
-              ? 'status-error' 
+          className={`flex items-center p-4 rounded-full mt-6 cursor-pointer shadow-lg transition-all duration-300
+            ${status.includes('Error') 
+              ? 'bg-gradient-to-r from-orange-100 to-rose-200 text-red-700' 
               : status.includes('Loading') 
-                ? 'status-loading' 
-                : 'status-success'
-          }`}
+                ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700' 
+                : 'bg-gradient-to-r from-lime-100 to-green-200 text-green-800'
+            }`}
           role="alert"
           onClick={() => controls.start('exit').then(() => setIsVisible(false))}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <span className="status-emoji">{getStatusEmoji()}</span>
-          <div className="status-content">
+          <span className="text-xl mr-3">{getStatusEmoji()}</span>
+          <div className="flex items-center font-medium">
             {getStatusIcon()}
             <span>{status}</span>
           </div>
@@ -126,36 +126,33 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
     }
   };
   
-  // Ensure issue.id exists, fallback to index if not available
   const uniqueKey = issue.id || `issue-${index}`;
   
-  // Get status color based on issue status
   const getStatusColor = () => {
     switch (issue.status?.toLowerCase()) {
       case 'resolved':
-        return 'status-resolved';
+        return 'bg-green-100 text-green-800';
       case 'in-progress':
-        return 'status-in-progress';
+        return 'bg-blue-100 text-blue-800';
       case 'rejected':
-        return 'status-rejected';
+        return 'bg-red-100 text-red-800';
       default:
-        return 'status-pending';
+        return 'bg-yellow-100 text-yellow-800';
     }
   };
   
-  // Get severity color based on issue severity
   const getSeverityColor = () => {
     switch (issue.severity?.toLowerCase()) {
       case 'critical':
-        return 'severity-critical';
+        return 'bg-red-100 text-red-800';
       case 'high':
-        return 'severity-high';
+        return 'bg-orange-100 text-orange-800';
       case 'medium':
-        return 'severity-medium';
+        return 'bg-yellow-100 text-yellow-800';
       case 'low':
-        return 'severity-low';
+        return 'bg-green-100 text-green-800';
       default:
-        return 'severity-unknown';
+        return 'bg-gray-200 text-gray-800';
     }
   };
   
@@ -165,27 +162,27 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      className={`issue-card ${expanded ? 'expanded' : ''}`}
+      className={`bg-white rounded-2xl shadow-md p-5 cursor-pointer transition-all duration-300 border border-gray-200 ${expanded ? 'border-indigo-500' : ''}`}
       onClick={toggleExpand}
       whileHover={{ y: -5 }}
       whileTap={{ scale: 0.99 }}
     >
-      <div className="issue-header">
-        <div className="issue-number">
-          <span className="number">{index + 1}</span>
+      <div className="flex items-center gap-4 md:flex-row flex-col">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-center font-semibold text-lg flex-shrink-0">
+          <span>{index + 1}</span>
         </div>
-        <div className="issue-title-container">
-          <h5 className="issue-title">{issue.title || 'Untitled Issue'}</h5>
-          <div className="issue-meta">
-            <span className={`status-badge ${getStatusColor()}`}>
+        <div className="flex-1">
+          <h5 className="text-lg font-semibold text-gray-800">{issue.title || 'Untitled Issue'}</h5>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor()}`}>
               {issue.status || 'Pending'}
             </span>
-            <span className={`severity-badge ${getSeverityColor()}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor()}`}>
               {issue.severity || 'Unknown'}
             </span>
           </div>
         </div>
-        <div className="expand-icon">
+        <div className="text-gray-400 flex-shrink-0">
           {expanded ? <FiChevronUp /> : <FiChevronDown />}
         </div>
       </div>
@@ -197,41 +194,41 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="issue-details"
+            className="mt-5 pt-5 border-t border-gray-200"
           >
-            <div className="detail-row">
-              <div className="detail-item">
-                <FiMapPin className="detail-icon" />
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <FiMapPin className="text-indigo-500 mt-1 flex-shrink-0" />
                 <span>{issue.location || 'No location provided'}</span>
               </div>
-              <div className="detail-item">
-                <FiCalendar className="detail-icon" />
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <FiCalendar className="text-indigo-500 mt-1 flex-shrink-0" />
                 <span>{issue.date ? new Date(issue.date).toLocaleDateString() : 'No date provided'}</span>
               </div>
             </div>
             
-            <div className="detail-row">
-              <div className="detail-item">
-                <FiUser className="detail-icon" />
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <FiUser className="text-indigo-500 mt-1 flex-shrink-0" />
                 <span>Reported by: {issue.reporter || 'Anonymous'}</span>
               </div>
-              <div className="detail-item">
-                <FiClock className="detail-icon" />
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <FiClock className="text-indigo-500 mt-1 flex-shrink-0" />
                 <span>{issue.timestamp ? new Date(issue.timestamp).toLocaleString() : 'No timestamp'}</span>
               </div>
             </div>
             
-            <div className="detail-row">
-              <div className="detail-item full-width">
-                <FiInfo className="detail-icon" />
+            <div className="flex mb-4">
+              <div className="flex items-start gap-2 text-sm text-gray-600 w-full">
+                <FiInfo className="text-indigo-500 mt-1 flex-shrink-0" />
                 <p>{issue.description || 'No description provided'}</p>
               </div>
             </div>
             
             {issue.category && (
-              <div className="detail-row">
-                <div className="detail-item">
-                  <FiTag className="detail-icon" />
+              <div className="flex mb-4">
+                <div className="flex items-start gap-2 text-sm text-gray-600">
+                  <FiTag className="text-indigo-500 mt-1 flex-shrink-0" />
                   <span>Category: {issue.category}</span>
                 </div>
               </div>
@@ -239,7 +236,7 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
             
             {issue.image && (
               <motion.div 
-                className="issue-image-container"
+                className="mt-4 rounded-xl overflow-hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
@@ -247,17 +244,17 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
                 <img 
                   src={issue.image} 
                   alt="Issue" 
-                  className="issue-image"
+                  className="w-full h-auto rounded-lg"
                 />
               </motion.div>
             )}
             
-            <div className="issue-actions">
-              <button className="action-btn view-btn">
+            <div className="flex flex-col md:flex-row gap-4 mt-5">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition">
                 <FiEye />
                 <span>View Details</span>
               </button>
-              <button className="action-btn edit-btn">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition">
                 <FiEdit />
                 <span>Edit</span>
               </button>
@@ -295,7 +292,6 @@ function ReportIssue() {
       await new Promise(resolve => setTimeout(resolve, 800));
       const response = await fetch('http://localhost:8000/api/issues');
       const data = await response.json();
-      // Ensure each issue has a unique id, fallback to index if missing
       const issuesWithIds = data.map((issue, index) => ({
         ...issue,
         id: issue.id || `issue-${index}`,
@@ -323,7 +319,6 @@ function ReportIssue() {
     setExpandedIssue(expandedIssue === id ? null : id);
   };
   
-  // Filter issues based on search term and status filter
   const filteredIssues = issues.filter(issue => {
     const matchesSearch = searchTerm === '' || 
       issue.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -372,46 +367,42 @@ function ReportIssue() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="report-issue-container"
+      className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 py-4 md:py-8 font-sans"
       ref={ref}
     >
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-lg-10">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-center">
+          <div className="w-full max-w-5xl">
             <motion.div 
-              className="main-card"
+              className="bg-white rounded-2xl shadow-xl overflow-hidden transition-all"
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 100, damping: 15 }}
               whileHover={{ y: -5 }}
             >
-              <div className="card-header">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 md:p-8 text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0)_70%)] -rotate-45 -top-1/2 -right-1/2 w-[200%] h-[200%]" />
                 <motion.h2 
-                  className="card-title"
+                  className="text-white text-2xl md:text-3xl font-bold flex items-center justify-center gap-2 relative z-10"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <FiUploadCloud className="title-icon" />
+                  <FiUploadCloud className="text-xl md:text-2xl" />
                   Report a Community Issue 🏘️
                 </motion.h2>
               </div>
               
-              <div className="card-body">
+              <div className="p-6 md:p-8">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
                   <motion.p 
-                    className="lead-text"
-                    animate={{
-                      color: ['#333', '#333', '#333'] // Static color
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity
-                    }}
+                    className="text-gray-600 text-lg md:text-xl text-center mb-8 font-medium"
+                    animate={{ color: ['#333', '#333', '#333'] }}
+                    transition={{ duration: 8, repeat: Infinity }}
                   >
                     Snap a photo 📸 of the problem and our AI will analyze it automatically!
                   </motion.p>
@@ -423,34 +414,34 @@ function ReportIssue() {
                 
                 {issues.length > 0 && (
                   <motion.div
-                    className="issues-section"
+                    className="mt-12"
                     variants={containerVariants}
                     initial="hidden"
                     animate={controls}
                   >
                     <motion.div 
-                      className="section-header"
+                      className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
                       variants={itemVariants}
                     >
-                      <h3 className="section-title">
-                        <FiRefreshCw className="section-icon" />
+                      <h3 className="text-xl md:text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                        <FiRefreshCw className="text-indigo-500" />
                         📋 Recent Community Issues
                       </h3>
                       
-                      <div className="section-controls">
-                        <div className="search-container">
-                          <FiSearch className="search-icon" />
+                      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center w-full md:w-auto">
+                        <div className="relative w-full md:w-64">
+                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           <input
                             type="text"
                             placeholder="Search issues..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="search-input"
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
                           />
                         </div>
                         
                         <button 
-                          className="filter-toggle"
+                          className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-full text-sm text-gray-600 hover:bg-gray-100 transition"
                           onClick={() => setShowFilters(!showFilters)}
                         >
                           <FiFilter />
@@ -462,19 +453,19 @@ function ReportIssue() {
                     <AnimatePresence>
                       {showFilters && (
                         <motion.div 
-                          className="filters-panel"
+                          className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-300"
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.3 }}
                         >
-                          <div className="filter-options">
-                            <span className="filter-label">Filter by status:</span>
-                            <div className="status-filters">
+                          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                            <span className="font-medium text-gray-600 whitespace-nowrap">Filter by status:</span>
+                            <div className="flex flex-wrap gap-2">
                               {statusOptions.map(option => (
                                 <button
                                   key={option.value}
-                                  className={`status-filter ${filterStatus === option.value ? 'active' : ''}`}
+                                  className={`px-3 py-1 rounded-full text-xs font-medium border border-gray-300 transition ${filterStatus === option.value ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-gray-600'}`}
                                   onClick={() => setFilterStatus(option.value)}
                                 >
                                   {option.label}
@@ -488,18 +479,18 @@ function ReportIssue() {
                     
                     {filteredIssues.length === 0 ? (
                       <motion.div 
-                        className="no-issues"
+                        className="flex flex-col items-center justify-center p-12 text-center text-gray-400"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                       >
-                        <div className="no-issues-icon">
+                        <div className="text-5xl mb-4 opacity-50">
                           <FiSearch />
                         </div>
-                        <h4>No issues found</h4>
+                        <h4 className="text-lg text-gray-600 mb-2">No issues found</h4>
                         <p>Try adjusting your search or filter criteria</p>
                       </motion.div>
                     ) : (
-                      <motion.div className="issues-list" variants={containerVariants}>
+                      <motion.div className="flex flex-col gap-4" variants={containerVariants}>
                         {filteredIssues.slice(0, 5).map((issue, index) => (
                           <IssueCard
                             key={issue.id}
@@ -515,13 +506,13 @@ function ReportIssue() {
                 )}
               </div>
               
-              <div className="card-footer">
+              <div className="bg-gray-50 p-6 text-center border-t border-gray-200">
                 <motion.button
                   onClick={fetchIssues}
                   disabled={isLoading}
                   whileTap={{ scale: 0.95 }}
                   whileHover={{ scale: 1.05 }}
-                  className="refresh-btn"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition disabled:opacity-70 disabled:cursor-not-allowed"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
@@ -545,29 +536,10 @@ function ReportIssue() {
       </div>
       
       <style>{`
-        .report-issue-container {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-          padding: 2rem 0;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        
-        .main-card {
-          background: white;
-          border-radius: 20px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          overflow: hidden;
-          transition: all 0.3s ease;
-        }
-        
+        /* Custom styles for elements Tailwind can't fully cover */
         .card-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 2rem;
-          text-align: center;
           position: relative;
-          overflow: hidden;
         }
-        
         .card-header::before {
           content: '';
           position: absolute;
@@ -577,502 +549,6 @@ function ReportIssue() {
           height: 200%;
           background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
           transform: rotate(45deg);
-        }
-        
-        .card-title {
-          color: white;
-          font-size: 1.75rem;
-          font-weight: 700;
-          margin: 0;
-          position: relative;
-          z-index: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-        }
-        
-        .title-icon {
-          font-size: 1.5rem;
-        }
-        
-        .card-body {
-          padding: 2rem;
-        }
-        
-        .lead-text {
-          color: #4a5568;
-          font-size: 1.125rem;
-          text-align: center;
-          margin-bottom: 2rem;
-          font-weight: 500;
-        }
-        
-        .status-message {
-          display: flex;
-          align-items: center;
-          padding: 1rem 1.5rem;
-          border-radius: 50px;
-          margin-top: 1.5rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .status-emoji {
-          font-size: 1.5rem;
-          margin-right: 0.75rem;
-        }
-        
-        .status-content {
-          display: flex;
-          align-items: center;
-          font-weight: 500;
-        }
-        
-        .status-error {
-          background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-          color: #c53030;
-        }
-        
-        .status-loading {
-          background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
-          color: #2b6cb0;
-        }
-        
-        .status-success {
-          background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
-          color: #2f855a;
-        }
-        
-        .issues-section {
-          margin-top: 3rem;
-        }
-        
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-        
-        .section-title {
-          color: #2d3748;
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin: 0;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .section-icon {
-          color: #667eea;
-        }
-        
-        .section-controls {
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-        }
-        
-        .search-container {
-          position: relative;
-          width: 250px;
-        }
-        
-        .search-icon {
-          position: absolute;
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #a0aec0;
-        }
-        
-        .search-input {
-          width: 100%;
-          padding: 0.5rem 0.5rem 0.5rem 2.5rem;
-          border: 1px solid #e2e8f0;
-          border-radius: 50px;
-          font-size: 0.875rem;
-          transition: all 0.3s ease;
-        }
-        
-        .search-input:focus {
-          outline: none;
-          border-color: #667eea;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .filter-toggle {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          background: #f7fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 50px;
-          font-size: 0.875rem;
-          color: #4a5568;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-        
-        .filter-toggle:hover {
-          background: #edf2f7;
-        }
-        
-        .filters-panel {
-          margin-bottom: 1.5rem;
-          padding: 1rem;
-          background: #f7fafc;
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-        }
-        
-        .filter-options {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        
-        .filter-label {
-          font-weight: 500;
-          color: #4a5568;
-          white-space: nowrap;
-        }
-        
-        .status-filters {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-        
-        .status-filter {
-          padding: 0.25rem 0.75rem;
-          border-radius: 50px;
-          font-size: 0.75rem;
-          font-weight: 500;
-          background: white;
-          border: 1px solid #e2e8f0;
-          color: #4a5568;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-        
-        .status-filter.active {
-          background: #667eea;
-          color: white;
-          border-color: #667eea;
-        }
-        
-        .issues-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        
-        .issue-card {
-          background: white;
-          border-radius: 16px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-          padding: 1.25rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          border: 1px solid #e2e8f0;
-        }
-        
-        .issue-card:hover {
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-          transform: translateY(-2px);
-        }
-        
-        .issue-card.expanded {
-          border-color: #667eea;
-        }
-        
-        .issue-header {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        
-        .issue-number {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 600;
-          flex-shrink: 0;
-        }
-        
-        .number {
-          font-size: 1.125rem;
-        }
-        
-        .issue-title-container {
-          flex: 1;
-        }
-        
-        .issue-title {
-          margin: 0;
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: #2d3748;
-        }
-        
-        .issue-meta {
-          display: flex;
-          gap: 0.5rem;
-          margin-top: 0.5rem;
-          flex-wrap: wrap;
-        }
-        
-        .status-badge, .severity-badge {
-          padding: 0.25rem 0.5rem;
-          border-radius: 50px;
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-        
-        .status-resolved {
-          background: #c6f6d5;
-          color: #276749;
-        }
-        
-        .status-in-progress {
-          background: #bee3f8;
-          color: #2c5282;
-        }
-        
-        .status-rejected {
-          background: #fed7d7;
-          color: #9b2c2c;
-        }
-        
-        .status-pending {
-          background: #faf089;
-          color: #744210;
-        }
-        
-        .severity-critical {
-          background: #fed7d7;
-          color: #9b2c2c;
-        }
-        
-        .severity-high {
-          background: #feebc8;
-          color: #9c4221;
-        }
-        
-        .severity-medium {
-          background: #faf089;
-          color: #744210;
-        }
-        
-        .severity-low {
-          background: #c6f6d5;
-          color: #276749;
-        }
-        
-        .severity-unknown {
-          background: #e2e8f0;
-          color: #4a5568;
-        }
-        
-        .expand-icon {
-          color: #a0aec0;
-          flex-shrink: 0;
-        }
-        
-        .issue-details {
-          margin-top: 1.25rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid #e2e8f0;
-        }
-        
-        .detail-row {
-          display: flex;
-          margin-bottom: 1rem;
-          gap: 1rem;
-        }
-        
-        .detail-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.5rem;
-          color: #4a5568;
-          font-size: 0.875rem;
-        }
-        
-        .detail-item.full-width {
-          width: 100%;
-        }
-        
-        .detail-icon {
-          color: #667eea;
-          margin-top: 0.125rem;
-          flex-shrink: 0;
-        }
-        
-        .issue-image-container {
-          margin-top: 1rem;
-          border-radius: 12px;
-          overflow: hidden;
-        }
-        
-        .issue-image {
-          width: 100%;
-          height: auto;
-          display: block;
-          border-radius: 8px;
-        }
-        
-        .issue-actions {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1.25rem;
-        }
-        
-        .action-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          border-radius: 8px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          border: none;
-        }
-        
-        .view-btn {
-          background: #edf2f7;
-          color: #4a5568;
-        }
-        
-        .view-btn:hover {
-          background: #e2e8f0;
-        }
-        
-        .edit-btn {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-        }
-        
-        .edit-btn:hover {
-          opacity: 0.9;
-        }
-        
-        .card-footer {
-          background: #f7fafc;
-          padding: 1.5rem;
-          text-align: center;
-          border-top: 1px solid #e2e8f0;
-        }
-        
-        .refresh-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.5rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border: none;
-          border-radius: 50px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        
-        .refresh-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-        }
-        
-        .refresh-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        
-        .no-issues {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem;
-          text-align: center;
-          color: #a0aec0;
-        }
-        
-        .no-issues-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-        
-        .no-issues h4 {
-          margin: 0 0 0.5rem;
-          color: #4a5568;
-        }
-        
-        .no-issues p {
-          margin: 0;
-        }
-        
-        @media (max-width: 768px) {
-          .report-issue-container {
-            padding: 1rem 0;
-          }
-          
-          .card-header {
-            padding: 1.5rem;
-          }
-          
-          .card-title {
-            font-size: 1.5rem;
-          }
-          
-          .card-body {
-            padding: 1.5rem;
-          }
-          
-          .section-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          
-          .search-container {
-            width: 100%;
-          }
-          
-          .filter-options {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          
-          .issue-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.75rem;
-          }
-          
-          .detail-row {
-            flex-direction: column;
-            gap: 0.75rem;
-          }
-          
-          .issue-actions {
-            flex-direction: column;
-          }
         }
       `}</style>
     </motion.div>
