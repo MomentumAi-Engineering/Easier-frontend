@@ -4,7 +4,7 @@ import ReportIssue from './pages/ReportIssue';
 import ViewIssues from './pages/ViewIssues';
 import NotFound from './pages/NotFound';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dasboard'
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
@@ -14,7 +14,7 @@ function App() {
         
         <Route path="/" element={<Home />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/report" element={<ReportIssue />} />z
+        <Route path="/report" element={<ReportIssue />} />
         <Route path="/view" element={<ViewIssues />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

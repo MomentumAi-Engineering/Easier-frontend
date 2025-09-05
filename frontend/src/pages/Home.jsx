@@ -1,28 +1,19 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FiUpload, FiMapPin, FiFileText, FiCheckCircle, FiClock, FiUsers } from 'react-icons/fi';
+import React, { useEffect, useState, useMemo } from 'react';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
+import { 
+  FiArrowRight, FiZap, FiShield, FiClock, FiUsers, FiTrendingUp, 
+  FiAward, FiStar, FiCheckCircle, FiPlay, FiArrowDown, FiUpload, 
+  FiMapPin, FiFileText, FiTarget, FiTrendingDown
+} from 'react-icons/fi';
+import { Link } from 'react-router-dom';
 
-// For this conversion, we'll assume Link and motion components are properly configured to accept Tailwind classes.
-const Link = ({ to, children, className, ...props }) => (
-  <a href={to} className={className} {...props}>
-    {children}
-  </a>
-);
-
-// Mock react-intersection-observer and framer-motion behavior for demonstration purposes.
-const useInView = () => {
-  return [useRef(), true];
-};
-const motion = {
-  div: ({ children, className, style }) => <div className={className} style={style}>{children}</div>,
-  h2: ({ children, className }) => <h2 className={className}>{children}</h2>
-};
-
-function FeatureCard({ icon, title, description, delay }) {
-  const [ref, inView] = useInView({ threshold: 0.1 });
+const FeatureCard = React.forwardRef(({ icon, title, description, delay }, ref) => {
+  const [inViewRef, inView] = useInView({ threshold: 0.1 });
   
   return (
     <motion.div
-      ref={ref}
+      ref={inViewRef}
       className="w-full"
       style={{
         opacity: inView ? 1 : 0,
@@ -40,10 +31,10 @@ function FeatureCard({ icon, title, description, delay }) {
       </div>
     </motion.div>
   );
-}
+});
 
-function StatCard({ icon, number, label, suffix = '', delay }) {
-  const [ref, inView] = useInView({ threshold: 0.1 });
+const StatCard = React.forwardRef(({ icon, number, label, suffix = '', delay }, ref) => {
+  const [inViewRef, inView] = useInView({ threshold: 0.1 });
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -66,7 +57,7 @@ function StatCard({ icon, number, label, suffix = '', delay }) {
   
   return (
     <motion.div
-      ref={ref}
+      ref={inViewRef}
       className="text-center transition-transform duration-300 ease-in-out hover:-translate-y-2 w-full"
       style={{
         opacity: inView ? 1 : 0,
@@ -79,14 +70,14 @@ function StatCard({ icon, number, label, suffix = '', delay }) {
       <p className="text-xl text-gray-300 opacity-90 font-light m-0">{label}</p>
     </motion.div>
   );
-}
+});
 
-function TestimonialCard({ name, role, content, avatar, delay }) {
-  const [ref, inView] = useInView({ threshold: 0.1 });
+const TestimonialCard = React.forwardRef(({ name, role, content, avatar, delay }, ref) => {
+  const [inViewRef, inView] = useInView({ threshold: 0.1 });
   
   return (
     <motion.div
-      ref={ref}
+      ref={inViewRef}
       className="w-full"
       style={{
         opacity: inView ? 1 : 0,
@@ -108,7 +99,7 @@ function TestimonialCard({ name, role, content, avatar, delay }) {
       </div>
     </motion.div>
   );
-}
+});
 
 function Home() {
   const [scrollY, setScrollY] = useState(0);
@@ -347,7 +338,7 @@ function Home() {
         </div>
       </footer>
       
-      <style jsx>{`
+      <style>{`
         @keyframes pulse-custom {
           0%, 100% { transform: scale(1); opacity: 0.7; }
           50% { transform: scale(1.5); opacity: 0.3; }

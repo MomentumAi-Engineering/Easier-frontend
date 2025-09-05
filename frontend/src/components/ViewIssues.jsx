@@ -84,7 +84,7 @@ const ViewIssues = () => {
     const fetchIssues = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/issues', {
+        const response = await axios.get('http://localhost:10000/issues', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setIssues(response.data);

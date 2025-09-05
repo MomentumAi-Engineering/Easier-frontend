@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
 import { 
   FiAlertCircle, 
   FiCheckCircle, 
@@ -165,8 +166,7 @@ function ViewIssues() {
   const [lastUpdated, setLastUpdated] = useState(new Date());
   
   const controls = useAnimation();
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: false, amount: 0.1 });
+  const [ref, isInView] = useInView({ once: false, amount: 0.1 });
   const wsRef = useRef(null);
   
   useEffect(() => {
@@ -193,7 +193,7 @@ function ViewIssues() {
     if (showLoading) setLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      const response = await fetch('http://localhost:8000/api/issues');
+      const response = await fetch('http://localhost:10000/api/issues');
       const data = await response.json();
       
       if (issues.length > 0 && data.length > issues.length) {

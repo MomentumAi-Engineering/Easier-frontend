@@ -25,7 +25,9 @@ import {
   Target,
   Users,
   Building,
-  Zap
+  Zap,
+  Mail,
+  Phone
 } from 'lucide-react';
 import './UploadForm.css';
 import API_BASE_URL from '../config';
@@ -50,6 +52,8 @@ function UploadForm({ setStatus, fetchIssues }) {
   const [showAuthoritySelector, setShowAuthoritySelector] = useState(false);
   const [availableAuthorities, setAvailableAuthorities] = useState({});
   const [selectedAuthorities, setSelectedAuthorities] = useState([]);
+  const [emailingAuthorities, setEmailingAuthorities] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('');
   
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -75,21 +79,31 @@ function UploadForm({ setStatus, fetchIssues }) {
     }
   }, [reportPreview]);
   
-  // Fetch authorities based on zip code
+  // Fetch authorities based on zip code from editedReport
   useEffect(() => {
     if (editedReport && editedReport.location && editedReport.location.zip_code) {
       fetchAuthoritiesByZipCode(editedReport.location.zip_code);
     }
   }, [editedReport]);
+
+  // Fetch authorities when user enters zip code manually
+  useEffect(() => {
+    if (zipCode && zipCode.length >= 5) { // US zip codes are typically 5 digits
+      fetchAuthoritiesByZipCode(zipCode);
+    }
+  }, [zipCode]);
   
   // Fetch authorities by zip code
   const fetchAuthoritiesByZipCode = async (zipCode) => {
+    console.log('Fetching authorities for zip code:', zipCode);
     try {
       const response = await fetch(`${API_BASE_URL}/authorities/${zipCode}`);
+      console.log('Response status:', response.status);
       if (!response.ok) {
         throw new Error('Failed to fetch authorities');
       }
       const data = await response.json();
+      console.log('Authorities data received:', data);
       setAvailableAuthorities(data);
       
       // Initialize selected authorities from current report
@@ -271,6 +285,10 @@ function UploadForm({ setStatus, fetchIssues }) {
     setEditedReport((prev) => {
       const updated = { ...prev };
       if (section) {
+        // Initialize section if it doesn't exist
+        if (!updated[section]) {
+          updated[section] = {};
+        }
         updated[section][field] = value;
       } else if (index !== null) {
         updated[field][index] = value;
@@ -292,7 +310,10 @@ function UploadForm({ setStatus, fetchIssues }) {
       const response = await fetch(`${API_BASE_URL}/issues/${issueId}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ edited_report: editedReport }),
+        body: JSON.stringify({ 
+          edited_report: editedReport,
+          selected_authorities: selectedAuthorities // Pass selected authorities to backend
+        }),
       });
   
       const result = await response.json();
@@ -398,20 +419,26 @@ function UploadForm({ setStatus, fetchIssues }) {
   };
   
   // Handle authority selection
-  const handleAuthoritySelection = (authority) => {
+  const handleAuthoritySelection = (authority, type) => {
+    // Create authority object with proper type
+    const authorityWithType = {
+      ...authority,
+      type: type || authority.type
+    };
+    
     // Check if authority is already selected
     const isSelected = selectedAuthorities.some(a => 
-      a.name === authority.name && a.type === authority.type
+      a.name === authorityWithType.name && a.type === authorityWithType.type
     );
     
     if (isSelected) {
       // Remove from selection
       setSelectedAuthorities(selectedAuthorities.filter(a => 
-        !(a.name === authority.name && a.type === authority.type)
+        !(a.name === authorityWithType.name && a.type === authorityWithType.type)
       ));
     } else {
       // Add to selection
-      setSelectedAuthorities([...selectedAuthorities, authority]);
+      setSelectedAuthorities([...selectedAuthorities, authorityWithType]);
     }
   };
   
@@ -423,6 +450,52 @@ function UploadForm({ setStatus, fetchIssues }) {
     }));
     setShowAuthoritySelector(false);
     setStatus('Authorities updated successfully');
+  };
+
+  // Send email to selected authorities
+  const sendEmailToAuthorities = async () => {
+    if (selectedAuthorities.length === 0) {
+      setEmailStatus('Please select at least one authority to send email');
+      return;
+    }
+
+    setEmailingAuthorities(true);
+    setEmailStatus('Sending emails...');
+
+    try {
+      const emailData = {
+        issue_id: issueId,
+        authorities: selectedAuthorities,
+        report_data: editedReport,
+        zip_code: editedReport.location?.zip_code || zipCode
+      };
+
+      const response = await fetch(`${API_BASE_URL}/send-authority-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send emails');
+      }
+
+      const result = await response.json();
+      setEmailStatus(`✅ Emails sent successfully to ${selectedAuthorities.length} authorities`);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setEmailStatus('');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error sending emails:', error);
+      setEmailStatus(`❌ Failed to send emails: ${error.message}`);
+    } finally {
+      setEmailingAuthorities(false);
+    }
   };
   
   return (
@@ -886,12 +959,41 @@ function UploadForm({ setStatus, fetchIssues }) {
               <div className="report-grid">
                 <div className="report-item">
                   <label className="report-label">Address</label>
-                  <p className="report-value">{reportPreview.report.template_fields.address || 'Not specified'}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedReport.location?.address || reportPreview.report.template_fields.address || ''}
+                      onChange={(e) => handleEditChange('location', 'address', e.target.value)}
+                      className="edit-input"
+                      placeholder="Enter address"
+                    />
+                  ) : (
+                    <p className="report-value">{editedReport.location?.address || reportPreview.report.template_fields.address || 'Not specified'}</p>
+                  )}
                 </div>
                 
                 <div className="report-item">
                   <label className="report-label">Zip Code</label>
-                  <p className="report-value">{reportPreview.report.template_fields.zip_code || 'Not specified'}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedReport.location?.zip_code || reportPreview.report.template_fields.zip_code || ''}
+                      onChange={(e) => {
+                        const newZipCode = e.target.value;
+                        handleEditChange('location', 'zip_code', newZipCode);
+                        // Fetch authorities when zip code changes
+                        if (newZipCode && newZipCode.length >= 5) {
+                          fetchAuthoritiesByZipCode(newZipCode);
+                        }
+                      }}
+                      className="edit-input"
+                      placeholder="Enter zip code"
+                      maxLength={5}
+                      pattern="\d{5}"
+                    />
+                  ) : (
+                    <p className="report-value">{editedReport.location?.zip_code || reportPreview.report.template_fields.zip_code || 'Not specified'}</p>
+                  )}
                 </div>
                 
                 <div className="report-item full-width">
@@ -1140,6 +1242,189 @@ function UploadForm({ setStatus, fetchIssues }) {
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Authority Selector Modal */}
+      <AnimatePresence>
+        {showAuthoritySelector && (
+          <motion.div 
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAuthoritySelector(false)}
+          >
+            <motion.div 
+              className="authority-selector-modal"
+              initial={{ opacity: 0, scale: 0.9, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 50 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3>
+                  <Users className="w-5 h-5" />
+                  Select Authorities for {editedReport?.location?.zip_code || zipCode}
+                </h3>
+                <button 
+                  className="modal-close-btn"
+                  onClick={() => setShowAuthoritySelector(false)}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="modal-content">
+                {emailStatus && (
+                  <motion.div 
+                    className={`email-status ${emailStatus.includes('✅') ? 'success' : emailStatus.includes('❌') ? 'error' : 'info'}`}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {emailStatus}
+                  </motion.div>
+                )}
+
+                <div className="authorities-section">
+                  <h4>Available Authorities ({Object.keys(availableAuthorities).length})</h4>
+                  <p className="section-description">
+                    Select multiple authorities to send your report. You can choose any authority, 
+                    not just the recommended ones.
+                  </p>
+                  {/* console.log('Available authorities in modal:', availableAuthorities) */}
+                  <div className="authorities-grid">
+                    {Object.entries(availableAuthorities).map(([type, authorities]) => (
+                      authorities.map((authority, index) => {
+                        const isSelected = selectedAuthorities.some(selected => 
+                          selected.name === authority.name && selected.type === type
+                        );
+                        const isRecommended = editedReport?.responsible_authorities_or_parties?.some(rec => 
+                          rec.name === authority.name && rec.type === type
+                        );
+                        
+                        return (
+                          <motion.div 
+                            key={`${type}-${index}`}
+                            className={`authority-card selectable ${
+                              isSelected ? 'selected' : ''
+                            } ${isRecommended ? 'recommended' : ''}`}
+                            onClick={() => handleAuthoritySelection(authority, type)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <div className="authority-header">
+                              <div className="authority-icon">
+                                <Building className="w-4 h-4" />
+                              </div>
+                              <div className="authority-badges">
+                                {isRecommended && (
+                                  <span className="badge recommended-badge">
+                                    <Star className="w-3 h-3" /> Recommended
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="badge selected-badge">
+                                    <Check className="w-3 h-3" /> Selected
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="authority-info">
+                              <h5 className="authority-name">{authority.name}</h5>
+                              <p className="authority-type">{type.replace('_', ' ').toUpperCase()}</p>
+                              {authority.email && (
+                                <p className="authority-email">
+                                  <Mail className="w-3 h-3" /> {authority.email}
+                                </p>
+                              )}
+                              {authority.phone && (
+                                <p className="authority-phone">
+                                  <Phone className="w-3 h-3" /> {authority.phone}
+                                </p>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })
+                    ))}
+                  </div>
+                </div>
+
+                {selectedAuthorities.length > 0 && (
+                  <div className="selected-authorities-section">
+                    <h4>Selected Authorities ({selectedAuthorities.length})</h4>
+                    <div className="selected-authorities-list">
+                      {selectedAuthorities.map((authority, index) => (
+                        <motion.div 
+                          key={index}
+                          className="selected-authority-item"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                        >
+                          <Building className="w-4 h-4" />
+                          <span>{authority.name} ({authority.type})</span>
+                          <button 
+                            className="remove-authority-btn"
+                            onClick={() => handleAuthoritySelection(authority, authority.type)}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <motion.button 
+                  className="modal-btn secondary"
+                  onClick={() => setShowAuthoritySelector(false)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Cancel
+                </motion.button>
+                
+                <motion.button 
+                  className="modal-btn primary"
+                  onClick={saveSelectedAuthorities}
+                  disabled={selectedAuthorities.length === 0}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Save className="w-4 h-4" />
+                  Save Selection ({selectedAuthorities.length})
+                </motion.button>
+                
+                <motion.button 
+                  className={`modal-btn email ${emailingAuthorities ? 'loading' : ''}`}
+                  onClick={sendEmailToAuthorities}
+                  disabled={selectedAuthorities.length === 0 || emailingAuthorities}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {emailingAuthorities ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Email to Selected ({selectedAuthorities.length})
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
 import { 
   FiUploadCloud, 
   FiAlertCircle, 
@@ -23,9 +24,43 @@ import {
   FiMap,
   FiStar,
   FiFilter,
-  FiSearch
+  FiSearch,
+  FiZap,
+  FiTrendingUp,
+  FiActivity,
+  FiShield
 } from 'react-icons/fi';
 import UploadForm from '../components/UploadForm';
+
+// Floating particles animation component
+const FloatingParticles = () => {
+  const particles = Array.from({ length: 6 }, (_, i) => i);
+  
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((particle) => (
+        <motion.div
+          key={particle}
+          className="absolute w-2 h-2 bg-white/20 rounded-full"
+          initial={{
+            x: Math.random() * 100 + '%',
+            y: Math.random() * 100 + '%',
+          }}
+          animate={{
+            x: [null, Math.random() * 100 + '%'],
+            y: [null, Math.random() * 100 + '%'],
+          }}
+          transition={{
+            duration: Math.random() * 10 + 10,
+            repeat: Infinity,
+            repeatType: 'reverse',
+            ease: 'linear',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 const StatusMessage = ({ status }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -48,29 +83,32 @@ const StatusMessage = ({ status }) => {
   }, [status, controls]);
   
   const variants = {
-    initial: { opacity: 0, y: -20, scale: 0.95 },
+    initial: { opacity: 0, y: -30, scale: 0.8, rotateX: -90 },
     animate: { 
       opacity: 1, 
       y: 0, 
       scale: 1,
+      rotateX: 0,
       transition: { 
         type: 'spring', 
-        stiffness: 300, 
-        damping: 20 
+        stiffness: 400, 
+        damping: 25,
+        duration: 0.6
       }
     },
     exit: { 
       opacity: 0, 
-      y: 20, 
-      scale: 0.95,
-      transition: { duration: 0.2 }
+      y: -20, 
+      scale: 0.9,
+      rotateX: 90,
+      transition: { duration: 0.3 }
     }
   };
   
   const getStatusIcon = () => {
-    if (status.includes('Error')) return <FiAlertCircle className="mr-2" />;
-    if (status.includes('Loading')) return <FiLoader className="mr-2 animate-spin" />;
-    return <FiCheckCircle className="mr-2" />;
+    if (status.includes('Error')) return <FiAlertCircle className="mr-3 text-lg" />;
+    if (status.includes('Loading')) return <FiLoader className="mr-3 text-lg animate-spin" />;
+    return <FiCheckCircle className="mr-3 text-lg" />;
   };
   
   const getStatusEmoji = () => {
@@ -78,6 +116,16 @@ const StatusMessage = ({ status }) => {
     if (status.includes('Loading')) return '⏳';
     if (status.includes('Success')) return '🎉';
     return 'ℹ️';
+  };
+  
+  const getStatusStyles = () => {
+    if (status.includes('Error')) {
+      return 'glass-card border-error/30 bg-gradient-to-r from-error/10 to-error/5 text-error shadow-error/20';
+    }
+    if (status.includes('Loading')) {
+      return 'glass-card border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 text-primary shadow-primary/20';
+    }
+    return 'glass-card border-success/30 bg-gradient-to-r from-success/10 to-success/5 text-success shadow-success/20';
   };
   
   return (
@@ -88,23 +136,51 @@ const StatusMessage = ({ status }) => {
           initial="initial"
           animate={controls}
           exit="exit"
-          className={`flex items-center p-4 rounded-full mt-6 cursor-pointer shadow-lg transition-all duration-300
-            ${status.includes('Error') 
-              ? 'bg-gradient-to-r from-orange-100 to-rose-200 text-red-700' 
-              : status.includes('Loading') 
-                ? 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700' 
-                : 'bg-gradient-to-r from-lime-100 to-green-200 text-green-800'
-            }`}
+          className={`flex items-center p-5 rounded-2xl mt-8 cursor-pointer transition-all duration-500 backdrop-blur-sm border ${getStatusStyles()}`}
           role="alert"
           onClick={() => controls.start('exit').then(() => setIsVisible(false))}
-          whileHover={{ scale: 1.02 }}
+          whileHover={{ 
+            scale: 1.02, 
+            y: -2,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+          }}
           whileTap={{ scale: 0.98 }}
         >
-          <span className="text-xl mr-3">{getStatusEmoji()}</span>
-          <div className="flex items-center font-medium">
-            {getStatusIcon()}
-            <span>{status}</span>
+          <motion.span 
+            className="text-2xl mr-4"
+            animate={{ 
+              rotate: [0, 10, -10, 0],
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              repeatType: 'reverse'
+            }}
+          >
+            {getStatusEmoji()}
+          </motion.span>
+          <div className="flex items-center font-semibold text-lg">
+            <motion.div
+              animate={status.includes('Loading') ? { rotate: 360 } : {}}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            >
+              {getStatusIcon()}
+            </motion.div>
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              {status}
+            </motion.span>
           </div>
+          <motion.div
+            className="ml-auto text-sm opacity-60 hover:opacity-100 transition-opacity"
+            whileHover={{ scale: 1.1 }}
+          >
+            <FiX className="w-4 h-4" />
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -113,15 +189,17 @@ const StatusMessage = ({ status }) => {
 
 const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
   const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 30, rotateY: -15 },
     visible: {
       opacity: 1,
       y: 0,
+      rotateY: 0,
       transition: {
-        delay: index * 0.1,
+        delay: index * 0.15,
         type: 'spring',
-        stiffness: 100,
-        damping: 10
+        stiffness: 120,
+        damping: 15,
+        duration: 0.8
       }
     }
   };
@@ -131,28 +209,43 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
   const getStatusColor = () => {
     switch (issue.status?.toLowerCase()) {
       case 'resolved':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success border-success/20 shadow-success/10';
       case 'in-progress':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary border-primary/20 shadow-primary/10';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'bg-error/10 text-error border-error/20 shadow-error/10';
       default:
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning border-warning/20 shadow-warning/10';
     }
   };
   
   const getSeverityColor = () => {
     switch (issue.severity?.toLowerCase()) {
       case 'critical':
-        return 'bg-red-100 text-red-800';
+        return 'bg-error/15 text-error border-error/30 shadow-error/20';
       case 'high':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-warning/15 text-warning border-warning/30 shadow-warning/20';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-primary/15 text-primary border-primary/30 shadow-primary/20';
       case 'low':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success border-success/30 shadow-success/20';
       default:
-        return 'bg-gray-200 text-gray-800';
+        return 'bg-neutral-200/50 text-neutral-600 border-neutral-300/50';
+    }
+  };
+  
+  const getSeverityIcon = () => {
+    switch (issue.severity?.toLowerCase()) {
+      case 'critical':
+        return <FiZap className="w-3 h-3" />;
+      case 'high':
+        return <FiTrendingUp className="w-3 h-3" />;
+      case 'medium':
+        return <FiActivity className="w-3 h-3" />;
+      case 'low':
+        return <FiShield className="w-3 h-3" />;
+      default:
+        return <FiInfo className="w-3 h-3" />;
     }
   };
   
@@ -162,103 +255,232 @@ const IssueCard = ({ issue, index, expanded, toggleExpand }) => {
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      className={`bg-white rounded-2xl shadow-md p-5 cursor-pointer transition-all duration-300 border border-gray-200 ${expanded ? 'border-indigo-500' : ''}`}
+      className={`glass-card rounded-3xl p-6 cursor-pointer transition-all duration-500 border backdrop-blur-md ${
+        expanded 
+          ? 'border-primary/40 shadow-primary/20 bg-primary/5' 
+          : 'border-neutral-200/30 hover:border-primary/30'
+      }`}
       onClick={toggleExpand}
-      whileHover={{ y: -5 }}
-      whileTap={{ scale: 0.99 }}
+      whileHover={{ 
+        y: -8, 
+        scale: 1.02,
+        boxShadow: '0 25px 50px rgba(0,0,0,0.15)'
+      }}
+      whileTap={{ scale: 0.98 }}
+      style={{
+        background: expanded 
+          ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)'
+          : 'rgba(255, 255, 255, 0.8)'
+      }}
     >
-      <div className="flex items-center gap-4 md:flex-row flex-col">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-center font-semibold text-lg flex-shrink-0">
+      <div className="flex items-center gap-5">
+        <motion.div 
+          className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center font-bold text-lg flex-shrink-0 shadow-lg"
+          whileHover={{ 
+            rotate: 360,
+            scale: 1.1
+          }}
+          transition={{ duration: 0.6 }}
+        >
           <span>{index + 1}</span>
-        </div>
-        <div className="flex-1">
-          <h5 className="text-lg font-semibold text-gray-800">{issue.title || 'Untitled Issue'}</h5>
-          <div className="flex gap-2 mt-2 flex-wrap">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor()}`}>
+        </motion.div>
+        
+        <div className="flex-1 min-w-0">
+          <motion.h5 
+            className="text-xl font-bold text-neutral-800 mb-3 truncate"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            {issue.title || 'Untitled Issue'}
+          </motion.h5>
+          
+          <div className="flex gap-3 flex-wrap">
+            <motion.span 
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border backdrop-blur-sm ${getStatusColor()}`}
+              whileHover={{ scale: 1.05 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+            >
               {issue.status || 'Pending'}
-            </span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor()}`}>
+            </motion.span>
+            
+            <motion.span 
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border backdrop-blur-sm flex items-center gap-2 ${getSeverityColor()}`}
+              whileHover={{ scale: 1.05 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              {getSeverityIcon()}
               {issue.severity || 'Unknown'}
-            </span>
+            </motion.span>
           </div>
         </div>
-        <div className="text-gray-400 flex-shrink-0">
-          {expanded ? <FiChevronUp /> : <FiChevronDown />}
-        </div>
+        
+        <motion.div 
+          className="text-neutral-400 flex-shrink-0 p-2 rounded-full hover:bg-neutral-100/50 transition-colors"
+          whileHover={{ 
+            scale: 1.2,
+            rotate: expanded ? 180 : 0
+          }}
+          animate={{ 
+            rotate: expanded ? 180 : 0
+          }}
+          transition={{ duration: 0.3 }}
+        >
+          <FiChevronDown className="w-5 h-5" />
+        </motion.div>
       </div>
       
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mt-5 pt-5 border-t border-gray-200"
+            initial={{ height: 0, opacity: 0, y: -20 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -20 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
+            className="mt-6 pt-6 border-t border-neutral-200/50"
           >
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <FiMapPin className="text-indigo-500 mt-1 flex-shrink-0" />
-                <span>{issue.location || 'No location provided'}</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <FiCalendar className="text-indigo-500 mt-1 flex-shrink-0" />
-                <span>{issue.date ? new Date(issue.date).toLocaleDateString() : 'No date provided'}</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <motion.div 
+                className="flex items-start gap-3 p-4 rounded-2xl bg-neutral-50/50 backdrop-blur-sm border border-neutral-200/30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <FiMapPin className="text-primary w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Location</p>
+                  <p className="text-sm font-medium text-neutral-700">{issue.location || 'No location provided'}</p>
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                className="flex items-start gap-3 p-4 rounded-2xl bg-neutral-50/50 backdrop-blur-sm border border-neutral-200/30"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="p-2 rounded-xl bg-secondary/10">
+                  <FiCalendar className="text-secondary w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Date</p>
+                  <p className="text-sm font-medium text-neutral-700">{issue.date ? new Date(issue.date).toLocaleDateString() : 'No date provided'}</p>
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                className="flex items-start gap-3 p-4 rounded-2xl bg-neutral-50/50 backdrop-blur-sm border border-neutral-200/30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <div className="p-2 rounded-xl bg-success/10">
+                  <FiUser className="text-success w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Reporter</p>
+                  <p className="text-sm font-medium text-neutral-700">{issue.reporter || 'Anonymous'}</p>
+                </div>
+              </motion.div>
+              
+              <motion.div 
+                className="flex items-start gap-3 p-4 rounded-2xl bg-neutral-50/50 backdrop-blur-sm border border-neutral-200/30"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <div className="p-2 rounded-xl bg-warning/10">
+                  <FiClock className="text-warning w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Timestamp</p>
+                  <p className="text-sm font-medium text-neutral-700">{issue.timestamp ? new Date(issue.timestamp).toLocaleString() : 'No timestamp'}</p>
+                </div>
+              </motion.div>
             </div>
             
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <FiUser className="text-indigo-500 mt-1 flex-shrink-0" />
-                <span>Reported by: {issue.reporter || 'Anonymous'}</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <FiClock className="text-indigo-500 mt-1 flex-shrink-0" />
-                <span>{issue.timestamp ? new Date(issue.timestamp).toLocaleString() : 'No timestamp'}</span>
-              </div>
-            </div>
-            
-            <div className="flex mb-4">
-              <div className="flex items-start gap-2 text-sm text-gray-600 w-full">
-                <FiInfo className="text-indigo-500 mt-1 flex-shrink-0" />
-                <p>{issue.description || 'No description provided'}</p>
-              </div>
-            </div>
-            
-            {issue.category && (
-              <div className="flex mb-4">
-                <div className="flex items-start gap-2 text-sm text-gray-600">
-                  <FiTag className="text-indigo-500 mt-1 flex-shrink-0" />
-                  <span>Category: {issue.category}</span>
+            <motion.div 
+              className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-neutral-50/80 to-neutral-100/50 backdrop-blur-sm border border-neutral-200/30"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <FiInfo className="text-primary w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">Description</p>
+                  <p className="text-neutral-700 leading-relaxed">{issue.description || 'No description provided'}</p>
                 </div>
               </div>
+            </motion.div>
+            
+            {issue.category && (
+              <motion.div 
+                className="mb-6 p-4 rounded-2xl bg-neutral-50/50 backdrop-blur-sm border border-neutral-200/30 inline-block"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-secondary/10">
+                    <FiTag className="text-secondary w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">Category</p>
+                    <p className="text-sm font-medium text-neutral-700">{issue.category}</p>
+                  </div>
+                </div>
+              </motion.div>
             )}
             
             {issue.image && (
               <motion.div 
-                className="mt-4 rounded-xl overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
+                className="mb-6 rounded-3xl overflow-hidden shadow-lg border border-neutral-200/30"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.7 }}
+                whileHover={{ scale: 1.02 }}
               >
                 <img 
                   src={issue.image} 
                   alt="Issue" 
-                  className="w-full h-auto rounded-lg"
+                  className="w-full h-auto"
                 />
               </motion.div>
             )}
             
-            <div className="flex flex-col md:flex-row gap-4 mt-5">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition">
-                <FiEye />
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+            >
+              <motion.button 
+                className="btn-secondary flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-semibold transition-all duration-300"
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <FiEye className="w-4 h-4" />
                 <span>View Details</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition">
-                <FiEdit />
-                <span>Edit</span>
-              </button>
-            </div>
+              </motion.button>
+              
+              <motion.button 
+                className="btn-primary flex items-center justify-center gap-3 px-6 py-3 rounded-2xl font-semibold transition-all duration-300"
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <FiEdit className="w-4 h-4" />
+                <span>Edit Issue</span>
+              </motion.button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -276,8 +498,7 @@ function ReportIssue() {
   const [showFilters, setShowFilters] = useState(false);
   
   const controls = useAnimation();
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: false, amount: 0.1 });
+  const [ref, isInView] = useInView({ once: false, amount: 0.1 });
   
   useEffect(() => {
     if (isInView) {
@@ -290,7 +511,7 @@ function ReportIssue() {
     setStatus('🔍 Loading issues... Please wait');
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      const response = await fetch('http://localhost:8000/api/issues');
+      const response = await fetch('http://localhost:10000/api/issues');
       const data = await response.json();
       const issuesWithIds = data.map((issue, index) => ({
         ...issue,
@@ -363,195 +584,250 @@ function ReportIssue() {
   ];
   
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 py-4 md:py-8 font-sans"
-      ref={ref}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex justify-center">
-          <div className="w-full max-w-5xl">
-            <motion.div 
-              className="bg-white rounded-2xl shadow-xl overflow-hidden transition-all"
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 100, damping: 15 }}
-              whileHover={{ y: -5 }}
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 relative overflow-hidden">
+      <FloatingParticles />
+      
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(var(--primary-rgb),0.1),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_49%,rgba(var(--secondary-rgb),0.05)_50%,transparent_51%)] bg-[length:20px_20px]" />
+      </div>
+      
+      <div className="relative z-10 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial="hidden"
+            animate={controls}
+            variants={containerVariants}
+            className="text-center mb-16"
+          >
+            <motion.div
+              className="inline-block mb-6"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
             >
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 md:p-8 text-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0)_70%)] -rotate-45 -top-1/2 -right-1/2 w-[200%] h-[200%]" />
-                <motion.h2 
-                  className="text-white text-2xl md:text-3xl font-bold flex items-center justify-center gap-2 relative z-10"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <FiUploadCloud className="text-xl md:text-2xl" />
-                  Report a Community Issue 🏘️
-                </motion.h2>
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-primary to-secondary p-4 shadow-2xl">
+                <FiUploadCloud className="w-full h-full text-white" />
               </div>
-              
-              <div className="p-6 md:p-8">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <motion.p 
-                    className="text-gray-600 text-lg md:text-xl text-center mb-8 font-medium"
-                    animate={{ color: ['#333', '#333', '#333'] }}
-                    transition={{ duration: 8, repeat: Infinity }}
-                  >
-                    Snap a photo 📸 of the problem and our AI will analyze it automatically!
-                  </motion.p>
-                  
-                  <UploadForm setStatus={setStatus} fetchIssues={fetchIssues} />
-                  
-                  <StatusMessage status={status} />
-                </motion.div>
+            </motion.div>
+            
+            <motion.h1 
+              className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-900 bg-clip-text text-transparent mb-6"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+            >
+              Report a Community Issue
+            </motion.h1>
+            
+            <motion.p 
+              className="text-xl md:text-2xl text-neutral-600 max-w-4xl mx-auto leading-relaxed"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+            >
+              Snap a photo 📸 of the problem and our AI will analyze it automatically!
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            variants={itemVariants}
+            className="glass-card p-8 rounded-3xl shadow-2xl border border-neutral-200/50 mb-16"
+            whileHover={{ y: -5, scale: 1.02 }}
+            transition={{ duration: 0.3 }}
+          >
+            <UploadForm setStatus={setStatus} fetchIssues={fetchIssues} />
+            
+            <StatusMessage status={status} />
+          </motion.div>
+          
+          {issues.length > 0 && (
+            <motion.div
+              className="glass-card p-8 rounded-3xl shadow-2xl border border-neutral-200/50 mb-16"
+              variants={itemVariants}
+              initial="hidden"
+              animate={controls}
+            >
+              <motion.div 
+                className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"
+                variants={itemVariants}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-primary/10">
+                    <FiRefreshCw className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-3xl font-bold text-neutral-900">
+                    📋 Recent Community Issues ({issues.length})
+                  </h3>
+                </div>
                 
-                {issues.length > 0 && (
-                  <motion.div
-                    className="mt-12"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate={controls}
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center w-full md:w-auto">
+                  <div className="relative w-full md:w-64">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      placeholder="Search issues..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-neutral-300/50 rounded-2xl text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition backdrop-blur-sm bg-white/80"
+                    />
+                  </div>
+                  
+                  <motion.button 
+                    className="flex items-center gap-2 px-4 py-3 bg-neutral-50/80 border border-neutral-300/50 rounded-2xl text-sm text-neutral-600 hover:bg-neutral-100/80 transition backdrop-blur-sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <motion.div 
-                      className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
-                      variants={itemVariants}
-                    >
-                      <h3 className="text-xl md:text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                        <FiRefreshCw className="text-indigo-500" />
-                        📋 Recent Community Issues
-                      </h3>
-                      
-                      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center w-full md:w-auto">
-                        <div className="relative w-full md:w-64">
-                          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search issues..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
-                          />
-                        </div>
-                        
-                        <button 
-                          className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-full text-sm text-gray-600 hover:bg-gray-100 transition"
-                          onClick={() => setShowFilters(!showFilters)}
-                        >
-                          <FiFilter />
-                          <span>Filters</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                    
-                    <AnimatePresence>
-                      {showFilters && (
-                        <motion.div 
-                          className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-300"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                            <span className="font-medium text-gray-600 whitespace-nowrap">Filter by status:</span>
-                            <div className="flex flex-wrap gap-2">
-                              {statusOptions.map(option => (
-                                <button
-                                  key={option.value}
-                                  className={`px-3 py-1 rounded-full text-xs font-medium border border-gray-300 transition ${filterStatus === option.value ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-gray-600'}`}
-                                  onClick={() => setFilterStatus(option.value)}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    
-                    {filteredIssues.length === 0 ? (
-                      <motion.div 
-                        className="flex flex-col items-center justify-center p-12 text-center text-gray-400"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
-                        <div className="text-5xl mb-4 opacity-50">
-                          <FiSearch />
-                        </div>
-                        <h4 className="text-lg text-gray-600 mb-2">No issues found</h4>
-                        <p>Try adjusting your search or filter criteria</p>
-                      </motion.div>
-                    ) : (
-                      <motion.div className="flex flex-col gap-4" variants={containerVariants}>
-                        {filteredIssues.slice(0, 5).map((issue, index) => (
-                          <IssueCard
-                            key={issue.id}
-                            issue={issue}
-                            index={index}
-                            expanded={expandedIssue === issue.id}
-                            toggleExpand={() => toggleExpandIssue(issue.id)}
-                          />
+                    <FiFilter />
+                    <span>Filters</span>
+                  </motion.button>
+                </div>
+              </motion.div>
+              
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div 
+                    className="mb-8 p-6 bg-neutral-50/80 rounded-2xl border border-neutral-300/50 backdrop-blur-sm"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                      <span className="font-semibold text-neutral-700 whitespace-nowrap">Filter by status:</span>
+                      <div className="flex flex-wrap gap-3">
+                        {statusOptions.map(option => (
+                          <motion.button
+                            key={option.value}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium border transition backdrop-blur-sm ${
+                              filterStatus === option.value 
+                                ? 'bg-primary text-white border-primary shadow-primary/20' 
+                                : 'bg-white/80 text-neutral-600 border-neutral-300/50 hover:border-primary/30'
+                            }`}
+                            onClick={() => setFilterStatus(option.value)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {option.label}
+                          </motion.button>
                         ))}
-                      </motion.div>
-                    )}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
               
-              <div className="bg-gray-50 p-6 text-center border-t border-gray-200">
+              {filteredIssues.length === 0 ? (
+                <motion.div 
+                  className="flex flex-col items-center justify-center p-16 text-center text-neutral-400"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <motion.div 
+                    className="text-6xl mb-6 opacity-50"
+                    animate={{ 
+                      rotate: [0, 10, -10, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ 
+                      duration: 3, 
+                      repeat: Infinity,
+                      repeatType: 'reverse'
+                    }}
+                  >
+                    <FiSearch />
+                  </motion.div>
+                  <h4 className="text-xl text-neutral-600 mb-3 font-semibold">No issues found</h4>
+                  <p className="text-neutral-500">Try adjusting your search or filter criteria</p>
+                </motion.div>
+              ) : (
+                <motion.div className="flex flex-col gap-6" variants={containerVariants}>
+                  {filteredIssues.slice(0, 5).map((issue, index) => (
+                    <IssueCard
+                      key={issue.id}
+                      issue={issue}
+                      index={index}
+                      expanded={expandedIssue === issue.id}
+                      toggleExpand={() => toggleExpandIssue(issue.id)}
+                    />
+                  ))}
+                </motion.div>
+              )}
+              
+              <div className="mt-8 pt-8 border-t border-neutral-200/50 text-center">
                 <motion.button
                   onClick={fetchIssues}
                   disabled={isLoading}
                   whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.05 }}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition disabled:opacity-70 disabled:cursor-not-allowed"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-2xl font-semibold shadow-2xl hover:shadow-primary/25 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
                 >
                   {isLoading ? (
                     <>
-                      <FiLoader className="animate-spin" />
+                      <FiLoader className="animate-spin w-5 h-5" />
                       <span>Refreshing... ♻️</span>
                     </>
                   ) : (
                     <>
-                      <FiRefreshCw />
+                      <FiRefreshCw className="w-5 h-5" />
                       <span>Refresh Issues 🔄</span>
                     </>
                   )}
                 </motion.button>
               </div>
             </motion.div>
-          </div>
+          )}
         </div>
       </div>
       
       <style>{`
         /* Custom styles for elements Tailwind can't fully cover */
-        .card-header {
-          position: relative;
+        .glass-card {
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
         }
-        .card-header::before {
-          content: '';
-          position: absolute;
-          top: -50%;
-          right: -50%;
-          width: 200%;
-          height: 200%;
-          background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
-          transform: rotate(45deg);
+        
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+        
+        .btn-primary {
+          background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+          color: white;
+          border: none;
+        }
+        
+        .btn-secondary {
+          background: rgba(255, 255, 255, 0.9);
+          color: #374151;
+          border: 1px solid rgba(209, 213, 219, 0.5);
         }
       `}</style>
-    </motion.div>
+    </div>
   );
 }
 
